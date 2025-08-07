@@ -54,6 +54,14 @@ const nextConfig = {
       },
     ];
   },
+  // Configure allowed development origins to prevent warnings
+  // This IP is allowed for development purposes
+  allowedDevOrigins: ['147.93.153.163'],
+
+  webpack: (config) => {
+    // Add webpack configuration if needed
+    return config;
+  },
 };
 
 export default withSentryConfig(nextConfig, {
