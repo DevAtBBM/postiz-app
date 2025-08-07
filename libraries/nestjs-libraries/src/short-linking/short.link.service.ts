@@ -37,8 +37,7 @@ export class ShortLinkService {
     }
 
     const mergeMessages = messages.join(' ');
-    const urlRegex =
-      /(https?:\/\/(?:www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b(?:[-a-zA-Z0-9()@:%_\+.~#?&//=]*))/gm;
+    const urlRegex = /(https?:\/\/(?:www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b(?:[-a-zA-Z0-9()@:%_\+.~#?&//=]*))/gm;
     const urls = mergeMessages.match(urlRegex);
     if (!urls) {
       // No URLs found, return the original text
@@ -62,8 +61,7 @@ export class ShortLinkService {
         .replace(/&num;/g, '#');
     });
 
-    const urlRegex =
-      /(https?:\/\/(?:www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b(?:[-a-zA-Z0-9()@:%_\+.~#?&//=]*))/gm;
+    const urlRegex = /(https?:\/\/(?:www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b(?:[-a-zA-Z0-9()@:%_\+.~#?&//=]*))/gm;
     return Promise.all(
       messages.map(async (text) => {
         const urls = uniq(text.match(urlRegex));
