@@ -1000,7 +1000,7 @@ export class PostsService {
       orgId,
       getNotificationsForOrgSince.length === 1
         ? subject
-        : '[Postiz] Your latest notifications',
+        : '[Postnify] Your latest notifications',
       message
     );
   }
