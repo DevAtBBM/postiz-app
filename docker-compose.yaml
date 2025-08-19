@@ -32,9 +32,12 @@ services:
     networks:
       - postiz-network
     labels:
+      # Router for main Postiz entrypoint (on port 5000)
       - "traefik.enable=true"
-      - "traefik.https.routers.<unique_router_name>.rule=Host(`coolify.io`) && PathPrefix(`/`)"
-      - "traefik.https.routers.<unique_router_name>.entryPoints=https"
+      - "traefik.http.routers.postiz.rule=Host(`platform.postnify.com`)"  # Replace with your domain
+      - "traefik.http.services.postiz.loadbalancer.server.port=5000"  # Internal port for postiz
+      - "traefik.http.routers.postiz.entrypoints=websecure"  # Postiz requires HTTPS
+      - "traefik.http.routers.postiz.tls=true"
     depends_on:
       postiz-postgres:
         condition: service_healthy
