@@ -1,0 +1,91 @@
+services:
+  postiz:
+    build:
+      context: https://github.com/DevAtBBM/postiz-private.git
+    container_name: postiz
+    restart: always
+    environment:
+      # You must change these. `yourServerAddress` this needs to be exactly the URL you're accessing Postiz on.
+      MAIN_URL: "https://platform.postnify.com"
+      FRONTEND_URL: "https://platform.postnify.com"
+      NEXT_PUBLIC_BACKEND_URL: "https://platform.postnify.com/api"
+      JWT_SECRET: "rX9kL2mP5qS7wV8zJ1nQ3eF6uB4tG9hY"
+ 
+      # These defaults are probably fine, but if you change your user/password, update it in the 
+      # postiz-postgres or postiz-redis services below.
+      DATABASE_URL: "postgresql://postnify-clive-user:poPassNewLvi3$34@postiz-postgres:5432/postnify-db-clive"
+      REDIS_URL: "redis://postiz-redis:6379"
+      BACKEND_INTERNAL_URL: "http://localhost:3000"
+      IS_GENERAL: "true" # Required for self-hosting.
+ 
+      # The container images are pre-configured to use /uploads for file storage.
+      # You probably should not change this unless you have a really good reason!
+      STORAGE_PROVIDER: "cloudflare"
+      UPLOAD_DIRECTORY: "/uploads"
+      NEXT_PUBLIC_UPLOAD_DIRECTORY: "/uploads"
+    volumes:
+      - postiz-config:/config/
+      - postiz-uploads:/uploads/
+    ports:
+      - 5000:5000
+    networks:
+      - postiz-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.https.routers.<unique_router_name>.rule=Host(`coolify.io`) && PathPrefix(`/`)"
+      - "traefik.https.routers.<unique_router_name>.entryPoints=https"
+    depends_on:
+      postiz-postgres:
+        condition: service_healthy
+      postiz-redis:
+        condition: service_healthy
+ 
+  postiz-postgres:
+    image: postgres:14.5
+    container_name: postiz-postgres
+    restart: always
+    environment:
+      POSTGRES_PASSWORD: poPassNewLvi3$34
+      POSTGRES_USER: postnify-clive-user
+      POSTGRES_DB: postnify-db-clive
+    volumes:
+      - postgres-volume:/var/lib/postgresql/data
+    ports:
+      - 5432:5432
+    networks:
+      - postiz-network
+    healthcheck:
+      test: pg_isready -U postnify-clive-user -d postnify-db-clive
+      interval: 10s
+      timeout: 3s
+      retries: 3
+  postiz-redis:
+    image: redis:7.2
+    container_name: postiz-redis
+    restart: always
+    ports:
+      - 6379:6379
+    healthcheck:
+      test: redis-cli ping
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    volumes:
+      - postiz-redis-data:/data
+    networks:
+      - postiz-network
+ 
+ 
+volumes:
+  postgres-volume:
+    external: false
+ 
+  postiz-redis-data:
+    external: false
+ 
+  postiz-config:
+    external: false
+ 
+networks:
+  postiz-network:
+    external: false
