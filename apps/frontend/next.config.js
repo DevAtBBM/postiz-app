@@ -17,7 +17,8 @@ const nextConfig = {
     if (!dev) {
       config.devtool = isServer ? 'source-map' : 'hidden-source-map';
     }
-    
+
+    // Add additional webpack configuration if needed
     return config;
   },
   
@@ -58,10 +59,6 @@ const nextConfig = {
   // This IP is allowed for development purposes
   allowedDevOrigins: ['147.93.153.163'],
 
-  webpack: (config) => {
-    // Add webpack configuration if needed
-    return config;
-  },
 };
 
 export default withSentryConfig(nextConfig, {
