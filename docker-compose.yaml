@@ -1,7 +1,8 @@
 services:
   postiz:
     build:
-      context: https://github.com/DevAtBBM/postiz-private.git
+      context: .
+      dockerfile: Dockerfile.dev
     container_name: postiz
     restart: always
     environment:
