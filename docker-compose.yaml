@@ -16,7 +16,7 @@ services:
       # postiz-postgres or postiz-redis services below.
       DATABASE_URL: "postgresql://postnify-clive-user:poPassNewLvi334@postiz-postgres:5432/postnify-db-clive"
       REDIS_URL: "redis://postiz-redis:6379"
-      BACKEND_INTERNAL_URL: "http://localhost:5000"
+      BACKEND_INTERNAL_URL: "http://localhost:3000"
       IS_GENERAL: "true" # Required for self-hosting.
  
       # The container images are pre-configured to use /uploads for file storage.
@@ -27,6 +27,8 @@ services:
     volumes:
       - postiz-config:/config/
       - postiz-uploads:/uploads/
+    ports:
+      - 5000:5000
     networks:
       - postiz-network
     labels:
