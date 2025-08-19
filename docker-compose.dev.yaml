@@ -9,9 +9,9 @@ services:
     container_name: postiz-postgres
     restart: always
     environment:
-      POSTGRES_PASSWORD: postiz-local-pwd
-      POSTGRES_USER: postiz-local
-      POSTGRES_DB: postiz-db-local
+      POSTGRES_PASSWORD: poPassNewLvi3$34
+      POSTGRES_USER: postnify-clive-user
+      POSTGRES_DB: postnify-db-clive
     volumes:
       - postgres-volume:/var/lib/postgresql/data
     ports:
@@ -35,8 +35,8 @@ services:
     ports:
       - 8081:80
     environment:
-      PGADMIN_DEFAULT_EMAIL: admin@admin.com
-      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_DEFAULT_EMAIL: shankar@purgesoft.com
+      PGADMIN_DEFAULT_PASSWORD: Champ#345@
     networks:
       - postiz-network
   postiz-redisinsight:
