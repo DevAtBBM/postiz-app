@@ -7,11 +7,11 @@ import {
   ValidateIf,
 } from 'class-validator';
 import { Provider } from '@prisma/client';
+import { IsStrongPassword } from '@gitroom/nestjs-libraries/validators/is-strong-password.validator';
 
 export class CreateOrgUserDto {
   @IsString()
-  @MinLength(3)
-  @MaxLength(64)
+  @IsStrongPassword()
   @IsDefined()
   @ValidateIf((o) => !o.providerToken)
   password: string;
@@ -32,7 +32,7 @@ export class CreateOrgUserDto {
 
   @IsString()
   @IsDefined()
-  @MinLength(3)
+  @MinLength(4)
   @MaxLength(128)
   company: string;
 }

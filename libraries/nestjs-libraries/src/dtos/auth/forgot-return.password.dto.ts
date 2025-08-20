@@ -6,11 +6,12 @@ import {
   ValidateIf,
 } from 'class-validator';
 import { makeId } from '@gitroom/nestjs-libraries/services/make.is';
+import { IsStrongPassword } from '@gitroom/nestjs-libraries/validators/is-strong-password.validator';
 
 export class ForgotReturnPasswordDto {
   @IsString()
   @IsDefined()
-  @MinLength(3)
+  @IsStrongPassword()
   password: string;
 
   @IsString()

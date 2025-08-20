@@ -22,6 +22,7 @@ import { FarcasterProvider } from '@gitroom/frontend/components/auth/providers/f
 import dynamic from 'next/dynamic';
 import { WalletUiProvider } from '@gitroom/frontend/components/auth/providers/placeholder/wallet.ui.provider';
 import { useT } from '@gitroom/react/translation/get.transation.service.client';
+import { PasswordStrength } from '@gitroom/frontend/components/auth/password-strength';
 const WalletProvider = dynamic(
   () => import('@gitroom/frontend/components/auth/providers/wallet.provider'),
   {
@@ -190,6 +191,7 @@ export function RegisterAfter({
                 type="password"
                 placeholder="Password"
               />
+              <PasswordStrength fieldName="password" />
             </>
           )}
           <Input

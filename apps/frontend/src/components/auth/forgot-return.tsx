@@ -8,6 +8,7 @@ import { useMemo, useState } from 'react';
 import { classValidatorResolver } from '@hookform/resolvers/class-validator';
 import { ForgotReturnPasswordDto } from '@gitroom/nestjs-libraries/dtos/auth/forgot-return.password.dto';
 import { useT } from '@gitroom/react/translation/get.transation.service.client';
+import { PasswordStrength } from '@gitroom/frontend/components/auth/password-strength';
 type Inputs = {
   password: string;
   repeatPassword: string;
@@ -65,6 +66,7 @@ export function ForgotReturn({ token }: { token: string }) {
                 type="password"
                 placeholder="Password"
               />
+              <PasswordStrength fieldName="password" />
               <Input
                 label="Repeat Password"
                 {...form.register('repeatPassword')}
