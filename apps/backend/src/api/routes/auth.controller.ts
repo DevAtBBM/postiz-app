@@ -64,20 +64,29 @@ export class AuthController {
       if (activationRequired) {
         response.header('activate', 'true');
         response.status(200).json({ activate: true });
-        return;
-      }
-
-      response.cookie('auth', jwt, {
-        domain: getCookieUrlFromDomain(process.env.FRONTEND_URL!),
-        ...(!process.env.NOT_SECURED
-          ? {
-              secure: true,
-              httpOnly: true,
-              sameSite: 'none',
-            }
-          : {}),
-        expires: new Date(Date.now() + 1000 * 60 * 60 * 24 * 365),
-      });
+          return;
+        }
+  
+        // Handle activation required (email sent)
+        if (activationRequired) {
+          response.status(200).json({
+            activate: true,
+            message: 'Verification email sent successfully. Please check your email and click the activation link.'
+          });
+          return;
+        }
+  
+        response.cookie('auth', jwt, {
+          domain: getCookieUrlFromDomain(process.env.FRONTEND_URL!),
+          ...(!process.env.NOT_SECURED
+            ? {
+                secure: true,
+                httpOnly: true,
+                sameSite: 'none',
+              }
+            : {}),
+          expires: new Date(Date.now() + 1000 * 60 * 60 * 24 * 365),
+        });
 
       if (process.env.NOT_SECURED) {
         response.header('auth', jwt);

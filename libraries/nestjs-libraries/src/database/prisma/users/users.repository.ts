@@ -239,4 +239,48 @@ export class UsersRepository {
       count,
     };
   }
+
+  incrementEmailVerificationAttempts(userId: string) {
+    return this._user.model.user.update({
+      where: {
+        id: userId,
+      },
+      data: {
+        emailVerificationAttempts: {
+          increment: 1,
+        },
+        lastEmailVerificationSent: new Date(),
+      },
+    });
+  }
+
+  resetEmailVerificationAttempts(userId: string) {
+    return this._user.model.user.update({
+      where: {
+        id: userId,
+      },
+      data: {
+        emailVerificationAttempts: 0,
+        emailVerificationResetAt: new Date(),
+      },
+    });
+  }
+
+  getUserWithVerificationData(email: string) {
+    return this._user.model.user.findFirst({
+      where: {
+        email,
+        providerName: Provider.LOCAL,
+      },
+      select: {
+        id: true,
+        email: true,
+        activated: true,
+        emailVerificationAttempts: true,
+        lastEmailVerificationSent: true,
+        emailVerificationResetAt: true,
+        createdAt: true,
+      },
+    });
+  }
 }

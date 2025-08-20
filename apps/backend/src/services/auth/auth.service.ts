@@ -42,7 +42,12 @@ export class AuthService {
       const user = await this._userService.getUserByEmail(body.email);
       if (body instanceof CreateOrgUserDto) {
         if (user) {
-          throw new Error('Email already exists');
+          if (user.activated) {
+            throw new Error('Email already exists');
+          } else {
+            // User exists but not activated - allow resending verification email
+            return await this.handleResendVerificationEmail(user, body, addToOrg);
+          }
         }
 
         if (!(await this.canRegister(provider))) {
@@ -79,7 +84,7 @@ export class AuthService {
       }
 
       if (!user.activated) {
-        throw new Error('User is not activated');
+        throw new Error('User is not activated. Please check your email for verification link or register again.');
       }
 
       return { addedOrg: false, jwt: await this.jwt(user) };
@@ -243,6 +248,54 @@ export class AuthService {
     }
 
     return { token };
+  }
+
+  private async handleResendVerificationEmail(
+    user: any,
+    body: CreateOrgUserDto,
+    addToOrg?: boolean | { orgId: string; role: 'USER' | 'ADMIN'; id: string }
+  ) {
+    const userWithVerification = await this._userService.getUserWithVerificationData(body.email);
+
+    if (!userWithVerification) {
+      throw new Error('User not found');
+    }
+
+    // Check if we should reset attempts (if it's a new day)
+    const lastReset = userWithVerification.emailVerificationResetAt;
+    const now = dayjs();
+    const isNewDay = !lastReset || now.diff(dayjs(lastReset), 'day') >= 1;
+
+    if (isNewDay) {
+      await this._userService.resetEmailVerificationAttempts(user.id);
+      userWithVerification.emailVerificationAttempts = 0;
+    }
+
+    // Check if user has exceeded the daily limit (2 attempts per day)
+    if (userWithVerification.emailVerificationAttempts >= 2) {
+      throw new Error('Email verification limit exceeded. Please try again tomorrow.');
+    }
+
+    // Increment attempts and send new verification email
+    await this._userService.incrementEmailVerificationAttempts(user.id);
+
+    const addedOrg =
+      addToOrg && typeof addToOrg !== 'boolean'
+        ? await this._organizationService.addUserToOrg(
+            user.id,
+            addToOrg.id,
+            addToOrg.orgId,
+            addToOrg.role
+          )
+        : false;
+
+    const obj = { addedOrg, jwt: await this.jwt(user) };
+    await this._emailService.sendEmail(
+      body.email,
+      'Activate your account',
+      `Click <a href="${process.env.FRONTEND_URL}/auth/activate/${obj.jwt}">here</a> to activate your account`
+    );
+    return obj;
   }
 
   private async jwt(user: User) {

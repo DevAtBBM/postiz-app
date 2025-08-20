@@ -55,4 +55,16 @@ export class UsersService {
   changePersonal(userId: string, body: UserDetailDto) {
     return this._usersRepository.changePersonal(userId, body);
   }
+
+  incrementEmailVerificationAttempts(userId: string) {
+    return this._usersRepository.incrementEmailVerificationAttempts(userId);
+  }
+
+  resetEmailVerificationAttempts(userId: string) {
+    return this._usersRepository.resetEmailVerificationAttempts(userId);
+  }
+
+  getUserWithVerificationData(email: string) {
+    return this._usersRepository.getUserWithVerificationData(email);
+  }
 }
