@@ -241,6 +241,45 @@ export class AuthController {
     return response.status(200).json({ can: true });
   }
 
+  @Get('/oauth/callback/:provider')
+  async oauthCallback(
+    @Param('provider') provider: string,
+    @Query('code') code: string,
+    @Query('state') state: string,
+    @Res({ passthrough: false }) response: Response
+  ) {
+    try {
+      const { jwt, token } = await this._authService.checkExists(provider, code);
+
+      if (token) {
+        // Redirect to frontend with token for registration completion
+        response.redirect(`${process.env.FRONTEND_URL}/auth/login?token=${token}&provider=${provider}`);
+        return;
+      }
+
+      response.cookie('auth', jwt, {
+        domain: getCookieUrlFromDomain(process.env.FRONTEND_URL!),
+        ...(!process.env.NOT_SECURED
+          ? {
+              secure: true,
+              httpOnly: true,
+              sameSite: 'none',
+            }
+          : {}),
+        expires: new Date(Date.now() + 1000 * 60 * 60 * 24 * 365),
+      });
+
+      if (process.env.NOT_SECURED) {
+        response.header('auth', jwt);
+      }
+
+      response.header('reload', 'true');
+      response.redirect(`${process.env.FRONTEND_URL}/`);
+    } catch (e: any) {
+      response.redirect(`${process.env.FRONTEND_URL}/auth/login?error=${encodeURIComponent(e.message)}`);
+    }
+  }
+
   @Post('/oauth/:provider/exists')
   async oauthExists(
     @Body('code') code: string,

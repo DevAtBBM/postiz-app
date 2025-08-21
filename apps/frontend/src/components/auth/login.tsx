@@ -5,7 +5,7 @@ import { useFetch } from '@gitroom/helpers/utils/custom.fetch';
 import Link from 'next/link';
 import { Button } from '@gitroom/react/form/button';
 import { Input } from '@gitroom/react/form/input';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { classValidatorResolver } from '@hookform/resolvers/class-validator';
 import { LoginUserDto } from '@gitroom/nestjs-libraries/dtos/auth/login.user.dto';
 import { GithubProvider } from '@gitroom/frontend/components/auth/providers/github.provider';
@@ -15,6 +15,7 @@ import { useVariables } from '@gitroom/react/helpers/variable.context';
 import { FarcasterProvider } from '@gitroom/frontend/components/auth/providers/farcaster.provider';
 import WalletProvider from '@gitroom/frontend/components/auth/providers/wallet.provider';
 import { useT } from '@gitroom/react/translation/get.transation.service.client';
+import { useSearchParams } from 'next/navigation';
 type Inputs = {
   email: string;
   password: string;
@@ -24,8 +25,11 @@ type Inputs = {
 export function Login() {
   const t = useT();
   const [loading, setLoading] = useState(false);
-  const { isGeneral, neynarClientId, billingEnabled, genericOauth } =
-    useVariables();
+  const { isGeneral, neynarClientId, billingEnabled } = useVariables();
+  const searchParams = useSearchParams();
+
+  // Force disable generic OAuth to show Google login
+  const genericOauth = false;
   const resolver = useMemo(() => {
     return classValidatorResolver(LoginUserDto);
   }, []);
@@ -37,6 +41,44 @@ export function Login() {
     },
   });
   const fetchData = useFetch();
+
+  // Handle OAuth token from URL parameters
+  useEffect(() => {
+    const token = searchParams.get('token');
+    const provider = searchParams.get('provider');
+    const error = searchParams.get('error');
+
+    if (error) {
+      form.setError('email', { message: decodeURIComponent(error) });
+    }
+
+    if (token && provider) {
+      // Complete OAuth registration/login
+      handleOAuthToken(token, provider);
+    }
+  }, [searchParams]);
+
+  const handleOAuthToken = async (token: string, provider: string) => {
+    setLoading(true);
+    try {
+      const response = await fetchData('/auth/oauth/' + provider + '/exists', {
+        method: 'POST',
+        body: JSON.stringify({ code: token }),
+      });
+
+      if (response.status === 200) {
+        // OAuth completed successfully, redirect to home
+        window.location.href = '/';
+      } else {
+        const errorText = await response.text();
+        form.setError('email', { message: errorText });
+      }
+    } catch (error) {
+      form.setError('email', { message: 'OAuth authentication failed' });
+    } finally {
+      setLoading(false);
+    }
+  };
   const onSubmit: SubmitHandler<Inputs> = async (data) => {
     setLoading(true);
     const login = await fetchData('/auth/login', {
