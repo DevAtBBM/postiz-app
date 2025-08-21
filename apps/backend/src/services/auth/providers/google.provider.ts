@@ -7,7 +7,7 @@ const createOAuthClient = () => {
   const client = new google.auth.OAuth2({
     clientId: process.env.GOOGLE_CLIENT_ID,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    redirectUri: `${process.env.FRONTEND_URL}/auth/oauth/callback/GOOGLE`,
+    redirectUri: `${process.env.NEXT_PUBLIC_BACKEND_URL}/auth/oauth/callback/GOOGLE`,
   });
 
   const oauth2 = (newClient: OAuth2Client) =>
@@ -27,7 +27,7 @@ export class GoogleProvider implements ProvidersInterface {
       access_type: 'online',
       prompt: 'consent',
       state,
-      redirect_uri: `${process.env.FRONTEND_URL}/auth/oauth/callback/GOOGLE`,
+      redirect_uri: `${process.env.NEXT_PUBLIC_BACKEND_URL}/auth/oauth/callback/GOOGLE`,
       scope: [
         'https://www.googleapis.com/auth/userinfo.profile',
         'https://www.googleapis.com/auth/userinfo.email',
