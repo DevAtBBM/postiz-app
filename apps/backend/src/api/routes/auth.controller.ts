@@ -249,14 +249,18 @@ export class AuthController {
     @Res({ passthrough: false }) response: Response
   ) {
     try {
+      console.log('OAuth callback received:', { provider, code: code.substring(0, 20) + '...', state });
+
       const { jwt, token } = await this._authService.checkExists(provider, code);
 
       if (token) {
         // Redirect to frontend with token for registration completion
+        console.log('New user - redirecting to registration completion');
         response.redirect(`${process.env.FRONTEND_URL}/auth/login?token=${token}&provider=${provider}`);
         return;
       }
 
+      console.log('Existing user - setting auth cookie');
       response.cookie('auth', jwt, {
         domain: getCookieUrlFromDomain(process.env.FRONTEND_URL!),
         ...(!process.env.NOT_SECURED
@@ -276,6 +280,7 @@ export class AuthController {
       response.header('reload', 'true');
       response.redirect(`${process.env.FRONTEND_URL}/`);
     } catch (e: any) {
+      console.error('OAuth callback error:', e);
       response.redirect(`${process.env.FRONTEND_URL}/auth/login?error=${encodeURIComponent(e.message)}`);
     }
   }

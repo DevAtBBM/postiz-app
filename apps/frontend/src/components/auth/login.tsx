@@ -61,6 +61,8 @@ export function Login() {
   const handleOAuthToken = async (token: string, provider: string) => {
     setLoading(true);
     try {
+      console.log('Handling OAuth token:', { token: token.substring(0, 20) + '...', provider });
+
       const response = await fetchData('/auth/oauth/' + provider + '/exists', {
         method: 'POST',
         body: JSON.stringify({ code: token }),
@@ -68,12 +70,15 @@ export function Login() {
 
       if (response.status === 200) {
         // OAuth completed successfully, redirect to home
+        console.log('OAuth completed successfully');
         window.location.href = '/';
       } else {
         const errorText = await response.text();
+        console.error('OAuth error response:', errorText);
         form.setError('email', { message: errorText });
       }
     } catch (error) {
+      console.error('OAuth authentication failed:', error);
       form.setError('email', { message: 'OAuth authentication failed' });
     } finally {
       setLoading(false);
