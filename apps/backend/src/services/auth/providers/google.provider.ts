@@ -23,22 +23,32 @@ export class GoogleProvider implements ProvidersInterface {
   generateLink() {
     const state = makeId(7);
     const { client } = createOAuthClient();
-    return client.generateAuthUrl({
+    const redirectUri = `${process.env.NEXT_PUBLIC_BACKEND_URL}/auth/oauth/callback/GOOGLE`;
+    const authUrl = client.generateAuthUrl({
       access_type: 'online',
       prompt: 'consent',
       state,
-      redirect_uri: `${process.env.NEXT_PUBLIC_BACKEND_URL}/auth/oauth/callback/GOOGLE`,
+      redirect_uri: redirectUri,
       scope: [
         'https://www.googleapis.com/auth/userinfo.profile',
         'https://www.googleapis.com/auth/userinfo.email',
       ],
     });
+    console.log('Generated Google OAuth URL:', { authUrl, redirectUri, clientId: process.env.GOOGLE_CLIENT_ID?.substring(0, 10) + '...' });
+    return authUrl;
   }
 
   async getToken(code: string) {
     const { client } = createOAuthClient();
-    const { tokens } = await client.getToken(code);
-    return tokens.access_token;
+    console.log('Exchanging code for token:', { code: code.substring(0, 10) + '...', redirectUri: process.env.NEXT_PUBLIC_BACKEND_URL + '/auth/oauth/callback/GOOGLE' });
+    try {
+      const { tokens } = await client.getToken(code);
+      console.log('Token exchange successful');
+      return tokens.access_token;
+    } catch (error) {
+      console.error('Token exchange failed:', error);
+      throw error;
+    }
   }
 
   async getUser(providerToken: string) {
