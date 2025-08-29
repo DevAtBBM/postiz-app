@@ -21,7 +21,6 @@ import { EmailService } from '@gitroom/nestjs-libraries/services/email.service';
 import { RealIP } from 'nestjs-real-ip';
 import { UserAgent } from '@gitroom/nestjs-libraries/user/user.agent';
 import { Provider } from '@prisma/client';
-import { ProvidersFactory } from '@gitroom/backend/services/auth/providers/providers.factory';
 
 @ApiTags('Auth')
 @Controller('/auth')
@@ -252,52 +251,16 @@ export class AuthController {
     try {
       console.log('OAuth callback received:', { provider, code: code.substring(0, 20) + '...', state });
 
+      // Use the existing oauthExists endpoint logic
       const { jwt, token } = await this._authService.checkExists(provider, code);
 
       if (token) {
-        // For new users, get user info and create account
-        const providerInstance = ProvidersFactory.loadProvider(provider as any);
-        const userInfo = await providerInstance.getUser(token);
-
-        if (!userInfo || !userInfo.email) {
-          throw new Error('Failed to get user information from OAuth provider');
-        }
-
-        console.log('New user - creating account for:', userInfo.email);
-
-        // Create the user account
-        const createUserDto: CreateOrgUserDto = {
-          email: userInfo.email,
-          password: '', // OAuth users don't need passwords
-          provider: provider as Provider,
-          providerToken: token,
-          company: 'Default Company'
-        } as any;
-
-        const { jwt: newJwt } = await this._authService.routeAuth(provider as any, createUserDto, '127.0.0.1', 'OAuth Flow');
-
-        response.cookie('auth', newJwt, {
-          domain: getCookieUrlFromDomain(process.env.FRONTEND_URL!),
-          ...(!process.env.NOT_SECURED
-            ? {
-                secure: true,
-                httpOnly: true,
-                sameSite: 'none',
-              }
-            : {}),
-          expires: new Date(Date.now() + 1000 * 60 * 60 * 24 * 365),
-        });
-
-        if (process.env.NOT_SECURED) {
-          response.header('auth', newJwt);
-        }
-
-        response.header('reload', 'true');
-        response.redirect(`${process.env.FRONTEND_URL}/`);
+        // Redirect back to frontend to complete registration with the token
+        response.redirect(`${process.env.FRONTEND_URL}/auth/login?token=${token}&provider=${provider}`);
         return;
       }
 
-      console.log('Existing user - setting auth cookie');
+      // Existing user - set auth cookie and redirect
       response.cookie('auth', jwt, {
         domain: getCookieUrlFromDomain(process.env.FRONTEND_URL!),
         ...(!process.env.NOT_SECURED
