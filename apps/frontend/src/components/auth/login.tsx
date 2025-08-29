@@ -104,7 +104,7 @@ export function Login() {
     <FormProvider {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)}>
         <div>
-          <h1 className="text-3xl font-bold text-start mb-4 cursor-pointer">
+          <h1 className="text-xl sm:text-3xl font-bold text-start mb-4">
             {t('sign_in', 'Sign In')}
           </h1>
         </div>
@@ -149,7 +149,7 @@ export function Login() {
           <div className="w-full flex">
             <Button
               type="submit"
-              className="flex-1 rounded-[4px]"
+              className="flex-1 rounded-[4px] bg-primary"
               loading={loading}
             >
               {t('sign_in_1', 'Sign in')}
@@ -157,12 +157,12 @@ export function Login() {
           </div>
           <p className="mt-4 text-sm">
             {t('don_t_have_an_account', "Don't Have An Account?")}&nbsp;
-            <Link href="/auth" className="underline cursor-pointer">
+            <Link href="/auth" className="underline hover:no-underline hover:text-primary cursor-pointer">
               {t('sign_up', 'Sign Up')}
             </Link>
           </p>
           <p className="mt-4 text-sm text-red-600">
-            <Link href="/auth/forgot" className="underline cursor-pointer">
+            <Link href="/auth/forgot" className="text-white underline hover:no-underline hover:text-primary cursor-pointer">
               {t('forgot_password', 'Forgot password')}
             </Link>
           </p>

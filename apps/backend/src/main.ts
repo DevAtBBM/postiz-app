@@ -28,8 +28,11 @@ async function bootstrap() {
       origin: [
         process.env.FRONTEND_URL,
         'http://localhost:3000',
+        'http://localhost:3003',
       'http://127.0.0.1:3000',
+      'http://127.0.0.1:3003',
       'http://147.93.153.163:3000',
+      'http://147.93.153.163:3003',
       'http://147.93.153.163',
         ...(process.env.MAIN_URL ? [process.env.MAIN_URL] : []),
       ],

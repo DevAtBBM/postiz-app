@@ -4,7 +4,7 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        primary: 'var(--color-primary)',
+        primary: '#26b9c0',
         secondary: 'var(--color-secondary)',
         textColor: 'var(--new-btn-text)',
         third: 'var(--color-third)',
@@ -72,6 +72,7 @@ module.exports = {
         customColor54: 'var(--color-custom54)',
         customColor55: 'var(--color-custom55)',
         modalCustom: 'var(--color-modalCustom)',
+        
 
 
 
@@ -101,8 +102,9 @@ module.exports = {
         13: 'repeat(13, minmax(0, 1fr));',
       },
       backgroundImage: {
-        loginBox: 'url(/auth/login-box.png)',
-        loginBg: 'url(/auth/bg-login.png)',
+        // loginBox: 'url(/auth/login-box.png)',
+        // loginBg: 'url(/auth/bg-login.png)',
+        loginBg: 'url(/auth/loginbg.png)',
       },
       fontFamily: {
         sans: ['Helvetica Neue'],

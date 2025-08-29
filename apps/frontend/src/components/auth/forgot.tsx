@@ -39,7 +39,7 @@ export function Forgot() {
     <FormProvider {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)}>
         <div>
-          <h1 className="text-3xl font-bold text-start mb-4 cursor-pointer">
+          <h1 className="text-xl sm:text-3xl font-bold text-start mb-4">
             {t('forgot_password_1', 'Forgot Password')}
           </h1>
         </div>
@@ -55,12 +55,12 @@ export function Forgot() {
             </div>
             <div className="text-center mt-6">
               <div className="w-full flex">
-                <Button type="submit" className="flex-1" loading={loading}>
+                <Button type="submit" className="flex-1 bg-primary" loading={loading}>
                   {t('send_password_reset_email', 'Send Password Reset Email')}
                 </Button>
               </div>
               <p className="mt-4 text-sm">
-                <Link href="/auth/login" className="underline cursor-pointer">
+                <Link href="/auth/login" className="underline hover:no-underline hover:text-primary cursor-pointer">
                   {t('go_back_to_login', 'Go back to login')}
                 </Link>
               </p>
@@ -75,7 +75,7 @@ export function Forgot() {
               )}
             </div>
             <p className="mt-4 text-sm">
-              <Link href="/auth/login" className="underline cursor-pointer">
+              <Link href="/auth/login" className="underline hover:no-underline hover:text-primary cursor-pointer">
                 {t('go_back_to_login', 'Go back to login')}
               </Link>
             </p>

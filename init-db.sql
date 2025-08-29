@@ -2,7 +2,7 @@
 DO $$
 BEGIN
    IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'postnify-clive-user') THEN
-      CREATE USER "postnify-clive-user" WITH PASSWORD 'poPassNewLvi334';
+      CREATE USER "postnify-clive-user" WITH PASSWORD 'poPassNewLvi3$34';
    END IF;
 END
 $$;

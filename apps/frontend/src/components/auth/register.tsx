@@ -147,7 +147,7 @@ export function RegisterAfter({
     <FormProvider {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)}>
         <div>
-          <h1 className="text-3xl font-bold text-start mb-4 cursor-pointer">
+          <h1 className="text-xl sm:text-3xl font-bold text-start mb-4">
             {t('sign_up', 'Sign Up')}
           </h1>
         </div>
@@ -209,14 +209,14 @@ export function RegisterAfter({
           )}&nbsp;
           <a
             href={`https://postiz.com/terms`}
-            className="underline hover:font-bold"
+            className="underline hover:no-underline hover:text-primary"
           >
             {t('terms_of_service', 'Terms of Service')}
           </a>&nbsp;
           {t('and', 'and')}&nbsp;
           <a
             href={`https://postiz.com/privacy`}
-            className="underline hover:font-bold"
+            className="underline hover:no-underline hover:text-primary"
           >
             {t('privacy_policy', 'Privacy Policy')}
           </a>&nbsp;
@@ -225,7 +225,7 @@ export function RegisterAfter({
           <div className="w-full flex">
             <Button
               type="submit"
-              className="flex-1 rounded-[4px]"
+              className="flex-1 rounded-[4px] bg-primary"
               loading={loading}
             >
               {t('create_account', 'Create Account')}
@@ -233,7 +233,7 @@ export function RegisterAfter({
           </div>
           <p className="mt-4 text-sm">
             {t('already_have_an_account', 'Already Have An Account?')}&nbsp;
-            <Link href="/auth/login" className="underline  cursor-pointer">
+            <Link href="/auth/login" className="underline  hover:no-underline hover:text-primary cursor-pointer">
               {t('sign_in', 'Sign In')}
             </Link>
           </p>
