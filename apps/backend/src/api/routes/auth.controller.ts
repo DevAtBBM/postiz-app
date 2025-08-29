@@ -255,9 +255,102 @@ export class AuthController {
       const { jwt, token } = await this._authService.checkExists(provider, code);
 
       if (token) {
-        // Redirect back to frontend to complete registration with the authorization code
-        response.redirect(`${process.env.FRONTEND_URL}/auth/login?authcode=${token}&provider=${provider}`);
-        return;
+        // Check if token is actually an access token (ya29. prefix)
+        if (token.startsWith('ya29.')) {
+          // Direct access token - handle it directly
+          try {
+            const { ProvidersFactory } = await import('@gitroom/backend/services/auth/providers/providers.factory');
+            const providerInstance = ProvidersFactory.loadProvider(provider as any);
+            const userInfo = await providerInstance.getUser(token);
+
+            if (!userInfo || !userInfo.email) {
+              throw new Error('Failed to get user information from OAuth provider');
+            }
+
+            console.log('Direct token user - creating account for:', userInfo.email);
+
+            // Try to register user directly with backend
+            const createUserDto = {
+              email: userInfo.email,
+              password: '', // OAuth users don't need passwords
+              provider: provider as Provider,
+              providerToken: token,
+              company: 'Default Company'
+            };
+
+            try {
+              const registerResult = await this._authService.routeAuth(provider as any, createUserDto, '127.0.0.1', 'OAuth Flow');
+
+              // Set auth cookie directly
+              response.cookie('auth', registerResult.jwt, {
+                domain: getCookieUrlFromDomain(process.env.FRONTEND_URL!),
+                ...(!process.env.NOT_SECURED
+                  ? {
+                      secure: true,
+                      httpOnly: true,
+                      sameSite: 'none',
+                    }
+                  : {}),
+                expires: new Date(Date.now() + 1000 * 60 * 60 * 24 * 365),
+              });
+
+              if (process.env.NOT_SECURED) {
+                response.header('auth', registerResult.jwt);
+              }
+
+              response.header('reload', 'true');
+              response.redirect(`${process.env.FRONTEND_URL}/`);
+              return;
+            } catch (registerError: any) {
+              console.log('User already exists, checking login...');
+
+              // If registration failed (likely user exists), try login flow
+              try {
+                const loginResult = await this._authService.routeAuth(provider as any, {
+                  email: '', // Not needed for OAuth login
+                  password: '',
+                  provider: provider as Provider,
+                  providerToken: token,
+                  company: '' // Not needed for login
+                }, '127.0.0.1', 'OAuth Flow');
+
+                // Set auth cookie for login
+                response.cookie('auth', loginResult.jwt, {
+                  domain: getCookieUrlFromDomain(process.env.FRONTEND_URL!),
+                  ...(!process.env.NOT_SECURED
+                    ? {
+                        secure: true,
+                        httpOnly: true,
+                        sameSite: 'none',
+                      }
+                    : {}),
+                  expires: new Date(Date.now() + 1000 * 60 * 60 * 24 * 365),
+                });
+
+                if (process.env.NOT_SECURED) {
+                  response.header('auth', loginResult.jwt);
+                }
+
+                response.header('reload', 'true');
+                response.redirect(`${process.env.FRONTEND_URL}/`);
+                return;
+              } catch (loginError) {
+                console.log('Login failed, redirecting to frontend:', loginError instanceof Error ? loginError.message : String(loginError));
+                // Both registration and login failed, send to frontend
+                response.redirect(`${process.env.FRONTEND_URL}/auth/login?authcode=${token}&provider=${provider}&error=${encodeURIComponent('Account setup failed')}`);
+                return;
+              }
+            }
+          } catch (userInfoError) {
+            console.error('Failed to get user info from token:', userInfoError);
+            response.redirect(`${process.env.FRONTEND_URL}/auth/login?error=${encodeURIComponent('Failed to authenticate with OAuth provider')}`);
+            return;
+          }
+        } else {
+          // This is a regular authorization code, redirect to frontend
+          response.redirect(`${process.env.FRONTEND_URL}/auth/login?authcode=${token}&provider=${provider}`);
+          return;
+        }
       }
 
       // Existing user - set auth cookie and redirect
