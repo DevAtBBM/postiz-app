@@ -21,6 +21,7 @@ import { EmailService } from '@gitroom/nestjs-libraries/services/email.service';
 import { RealIP } from 'nestjs-real-ip';
 import { UserAgent } from '@gitroom/nestjs-libraries/user/user.agent';
 import { Provider } from '@prisma/client';
+import { ProvidersFactory } from '@gitroom/backend/services/auth/providers/providers.factory';
 
 @ApiTags('Auth')
 @Controller('/auth')
@@ -259,7 +260,7 @@ export class AuthController {
         if (token.startsWith('ya29.')) {
           // Direct access token - handle it directly
           try {
-            const { ProvidersFactory } = await import('@gitroom/backend/services/auth/providers/providers.factory');
+            // ProvidersFactory is now imported statically at the top
             const providerInstance = ProvidersFactory.loadProvider(provider as any);
             const userInfo = await providerInstance.getUser(token);
 
