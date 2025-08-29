@@ -266,13 +266,13 @@ export class AuthController {
         console.log('New user - creating account for:', userInfo.email);
 
         // Create the user account
-        const createUserDto = {
+        const createUserDto: CreateOrgUserDto = {
           email: userInfo.email,
           password: '', // OAuth users don't need passwords
           provider: provider as Provider,
           providerToken: token,
           company: 'Default Company'
-        };
+        } as any;
 
         const { jwt: newJwt } = await this._authService.routeAuth(provider as any, createUserDto, '127.0.0.1', 'OAuth Flow');
 
