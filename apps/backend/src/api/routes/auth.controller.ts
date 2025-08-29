@@ -255,8 +255,8 @@ export class AuthController {
       const { jwt, token } = await this._authService.checkExists(provider, code);
 
       if (token) {
-        // Redirect back to frontend to complete registration with the token
-        response.redirect(`${process.env.FRONTEND_URL}/auth/login?token=${token}&provider=${provider}`);
+        // Redirect back to frontend to complete registration with the authorization code
+        response.redirect(`${process.env.FRONTEND_URL}/auth/login?authcode=${token}&provider=${provider}`);
         return;
       }
 

@@ -42,9 +42,9 @@ export function Login() {
   });
   const fetchData = useFetch();
 
-  // Handle OAuth token from URL parameters
+  // Handle OAuth auth code from URL parameters
   useEffect(() => {
-    const token = searchParams.get('token');
+    const authCode = searchParams.get('authcode') || searchParams.get('token');
     const provider = searchParams.get('provider');
     const error = searchParams.get('error');
 
@@ -52,30 +52,62 @@ export function Login() {
       form.setError('email', { message: decodeURIComponent(error) });
     }
 
-    if (token && provider) {
+    if (authCode && provider) {
       // Complete OAuth registration/login
-      handleOAuthToken(token, provider);
+      handleOAuthAuthCode(authCode, provider);
     }
   }, [searchParams]);
 
-  const handleOAuthToken = async (token: string, provider: string) => {
+  const handleOAuthAuthCode = async (authCode: string, provider: string) => {
     setLoading(true);
     try {
-      console.log('Handling OAuth token:', { token: token.substring(0, 20) + '...', provider });
+      console.log('Handling OAuth auth code:', { authCode: authCode.substring(0, 20) + '...', provider });
 
+      // This can be either an access token or a regular OAuth code
       const response = await fetchData('/auth/oauth/' + provider + '/exists', {
         method: 'POST',
-        body: JSON.stringify({ code: token }),
+        body: JSON.stringify({ code: authCode }),
       });
 
       if (response.status === 200) {
-        // OAuth completed successfully, redirect to home
-        console.log('OAuth completed successfully');
-        window.location.href = '/';
+        const data = await response.json();
+
+        // If we get back a token, we need to register the user
+        if (data.token) {
+          const registerResponse = await fetchData('/auth/register', {
+            method: 'POST',
+            body: JSON.stringify({
+              email: '', // OAuth providers will provide this
+              password: '',
+              provider: provider.toUpperCase(),
+              providerToken: data.token,
+              company: 'Default Company'
+            })
+          });
+
+          if (registerResponse.status === 200) {
+            console.log('OAuth registration completed successfully');
+            window.location.href = '/';
+          } else {
+            const errorText = await registerResponse.text();
+            console.error('OAuth registration failed:', errorText);
+            form.setError('email', { message: 'Failed to create account from OAuth' });
+          }
+        } else {
+          // Direct login success
+          console.log('OAuth login completed successfully');
+          window.location.href = '/';
+        }
       } else {
         const errorText = await response.text();
         console.error('OAuth error response:', errorText);
-        form.setError('email', { message: errorText });
+
+        // If it's an invalid_grant error, the token might be invalid
+        if (errorText.includes('invalid_grant') || errorText.includes('Malformed auth code')) {
+          form.setError('email', { message: 'OAuth session expired. Please try again.' });
+        } else {
+          form.setError('email', { message: 'OAuth authentication failed. Please try again.' });
+        }
       }
     } catch (error) {
       console.error('OAuth authentication failed:', error);
