@@ -13,6 +13,7 @@ import { ThirdPartyModule } from '@gitroom/nestjs-libraries/3rdparties/thirdpart
 import { VideoModule } from '@gitroom/nestjs-libraries/videos/video.module';
 import { SentryModule } from "@sentry/nestjs/setup";
 import { FILTER } from '@gitroom/nestjs-libraries/sentry/sentry.exception';
+import { BillingModule } from '@gitroom/nestjs-libraries/database/prisma/subscriptions/billing.module';
 
 @Global()
 @Module({
@@ -20,6 +21,7 @@ import { FILTER } from '@gitroom/nestjs-libraries/sentry/sentry.exception';
     SentryModule.forRoot(),
     BullMqModule,
     DatabaseModule,
+    BillingModule,
     ApiModule,
     PublicApiModule,
     AgentModule,
@@ -48,6 +50,7 @@ import { FILTER } from '@gitroom/nestjs-libraries/sentry/sentry.exception';
   exports: [
     BullMqModule,
     DatabaseModule,
+    BillingModule,
     ApiModule,
     PublicApiModule,
     AgentModule,

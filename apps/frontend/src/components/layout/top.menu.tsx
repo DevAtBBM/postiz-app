@@ -183,7 +183,7 @@ export const useMenuItem = () => {
           />
         </svg>
       ),
-      path: 'https://affiliate.postiz.com',
+      path: 'https://affiliate.postnify.com',
       role: ['ADMIN', 'SUPERADMIN', 'USER'],
       requireBilling: true,
     },
@@ -254,7 +254,7 @@ export const TopMenu: FC = () => {
   const { isGeneral, billingEnabled } = useVariables();
   return (
     <>
-      <div className="flex flex-1 flex-col gap-[16px]">
+      <div className="flex flex-1 flex-col gap-[16px] max-h(100%) overflow-y-auto scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-transparent">
         {
           // @ts-ignore
           user?.orgId &&

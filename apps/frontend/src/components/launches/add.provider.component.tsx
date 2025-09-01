@@ -443,7 +443,7 @@ export const AddProviderComponent: FC<{
     <div className="w-full flex flex-col gap-[20px] rounded-[4px] relative">
       <div className="flex flex-col">
         <h2 className="pt-[16px] pb-[10px]">{t('social', 'Social')}</h2>
-        <div className="grid grid-cols-5 gap-[10px] justify-items-center justify-center">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-[10px] justify-items-center justify-center">
           {social.map((item) => (
             <div
               key={item.identifier}

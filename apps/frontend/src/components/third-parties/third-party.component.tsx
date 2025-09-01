@@ -117,7 +117,7 @@ export const ThirdPartyComponent = () => {
       <div
         className={clsx(
           'bg-newBgColorInner p-[20px] flex flex-col gap-[15px] transition-all',
-          collapseMenu === '1' ? 'group sidebar w-[100px]' : 'w-[260px]'
+          collapseMenu === '1' ? 'group sidebar w-[130px]' : 'w-[260px]'
         )}
       >
         <div className="flex gap-[12px] flex-col">

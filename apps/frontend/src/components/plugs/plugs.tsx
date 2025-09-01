@@ -98,7 +98,7 @@ export const Plugs = () => {
         <div>
           <img src="/peoplemarketplace.svg" />
         </div>
-        <div className="text-[48px]">
+        <div className="text-[20px] md:text-[25px] md:text-[32px] lg:text-[40px] xl:text-[48px] text-center">
           {t(
             'there_are_not_plugs_matching_your_channels',
             'There are not plugs matching your channels'
@@ -109,7 +109,7 @@ export const Plugs = () => {
             'You have to add: X or LinkedIn or Threads'
           )}
         </div>
-        <Button onClick={() => router.push('/launches')}>
+        <Button onClick={() => router.push('/launches')} className="text-[12px] sm:text-[14px] lg:text-[16px]">
           {t(
             'go_to_the_calendar_to_add_channels',
             'Go to the calendar to add channels'

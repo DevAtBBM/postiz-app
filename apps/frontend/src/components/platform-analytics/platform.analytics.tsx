@@ -144,7 +144,7 @@ export const PlatformAnalytics = () => {
         <div>
           <img src="/peoplemarketplace.svg" />
         </div>
-        <div className="text-[48px]">
+        <div className="text-[20px] md:text-[25px] md:text-[32px] lg:text-[40px] xl:text-[48px]">
           {t('can_t_show_analytics_yet', "Can't show analytics yet")}
           <br />
           {t(
@@ -152,11 +152,11 @@ export const PlatformAnalytics = () => {
             'You have to add Social Media channels'
           )}
         </div>
-        <div className="text-[20px]">
+        <div className="text-[13px] sm:text-[16px] md:text-[18px] lg:text-[20px]">
           {t('supported', 'Supported:')}
           {allowedIntegrations.map((p) => capitalize(p)).join(', ')}
         </div>
-        <Button onClick={() => router.push('/launches')}>
+        <Button onClick={() => router.push('/launches')} className="text-[12px] sm:text-[14px] lg:text-[16px]">
           {t(
             'go_to_the_calendar_to_add_channels',
             'Go to the calendar to add channels'

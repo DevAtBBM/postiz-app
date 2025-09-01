@@ -13,9 +13,10 @@ import { TrackService } from '@gitroom/nestjs-libraries/track/track.service';
 import { UsersService } from '@gitroom/nestjs-libraries/database/prisma/users/users.service';
 import { TrackEnum } from '@gitroom/nestjs-libraries/user/track.enum';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+// Only initialize Stripe if key is available
+const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY, {
   apiVersion: '2024-04-10',
-});
+}) : null;
 
 @Injectable()
 export class StripeService {
@@ -27,6 +28,9 @@ export class StripeService {
     private _trackService: TrackService
   ) {}
   validateRequest(rawBody: Buffer, signature: string, endpointSecret: string) {
+    if (!stripe) {
+      throw new Error('Stripe is not configured');
+    }
     return stripe.webhooks.constructEvent(rawBody, signature, endpointSecret);
   }
 
@@ -186,6 +190,10 @@ export class StripeService {
   }
 
   async createOrGetCustomer(organization: Organization) {
+    if (!stripe) {
+      return `mock_customer_${organization.id}`;
+    }
+
     if (organization.paymentId) {
       return organization.paymentId;
     }
@@ -201,6 +209,22 @@ export class StripeService {
   }
 
   async getPackages() {
+    if (!stripe) {
+      // Return mock pricing for demonstration
+      return {
+        monthly: [
+          { name: 'Free', price: 0, recurring: 'month' },
+          { name: 'Standard', price: 29, recurring: 'month' },
+          { name: 'Pro', price: 49, recurring: 'month' }
+        ],
+        yearly: [
+          { name: 'Free', price: 0, recurring: 'year' },
+          { name: 'Standard', price: 290, recurring: 'year' },
+          { name: 'Pro', price: 490, recurring: 'year' }
+        ]
+      };
+    }
+
     const products = await stripe.prices.list({
       active: true,
       expand: ['data.tiers', 'data.product'],
@@ -732,7 +756,7 @@ export class StripeService {
         'MONTHLY',
         null,
         testCode,
-        organizationId
+        { id: organizationId }
       );
       return {
         success: true,

@@ -8,6 +8,7 @@ import {
   Put,
   Query,
   Res,
+  UseGuards,
 } from '@nestjs/common';
 import { PostsService } from '@gitroom/nestjs-libraries/database/prisma/posts/posts.service';
 import { GetOrgFromRequest } from '@gitroom/nestjs-libraries/user/org.from.request';
@@ -25,6 +26,8 @@ import { GetUserFromRequest } from '@gitroom/nestjs-libraries/user/user.from.req
 import { ShortLinkService } from '@gitroom/nestjs-libraries/short-linking/short.link.service';
 import { CreateTagDto } from '@gitroom/nestjs-libraries/dtos/posts/create.tag.dto';
 import { AuthorizationActions, Sections } from '@gitroom/backend/services/auth/permissions/permission.exception.class';
+import { QuotaGuard } from '@gitroom/nestjs-libraries/database/prisma/subscriptions/quota.guard';
+import { SubscriptionService } from '@gitroom/nestjs-libraries/database/prisma/subscriptions/subscription.service';
 
 @ApiTags('Posts')
 @Controller('/posts')
@@ -34,7 +37,8 @@ export class PostsController {
     private _starsService: StarsService,
     private _messagesService: MessagesService,
     private _agentGraphService: AgentGraphService,
-    private _shortLinkService: ShortLinkService
+    private _shortLinkService: ShortLinkService,
+    private _subscriptionService: SubscriptionService
   ) {}
 
   @Get('/:id/statistics')
@@ -134,14 +138,18 @@ export class PostsController {
   }
 
   @Post('/')
+  @UseGuards(QuotaGuard)
   @CheckPolicies([AuthorizationActions.Create, Sections.POSTS_PER_MONTH])
   async createPost(
     @GetOrgFromRequest() org: Organization,
     @Body() rawBody: any
   ) {
     console.log(JSON.stringify(rawBody, null, 2));
-    const body = await this._postsService.mapTypeToPost(rawBody, org.id);
-    return this._postsService.createPost(org.id, body);
+
+    return this._subscriptionService.useFeature(org, 'posts', async () => {
+      const body = await this._postsService.mapTypeToPost(rawBody, org.id);
+      return this._postsService.createPost(org.id, body);
+    });
   }
 
   @Post('/generator/draft')
