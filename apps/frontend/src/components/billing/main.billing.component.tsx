@@ -479,7 +479,7 @@ export const MainBillingComponent: FC<{
             </div>
           ))}
       </div>
-      {!subscription?.id && <PurchaseCrypto />}
+      {/* {!subscription?.id && <PurchaseCrypto />} */}
       {!!subscription?.id && (
         <div className="flex justify-center mt-[20px] gap-[10px]">
           <Button onClick={updatePayment}>
