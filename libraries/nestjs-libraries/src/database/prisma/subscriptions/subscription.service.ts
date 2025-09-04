@@ -21,6 +21,11 @@ export class SubscriptionService {
     );
   }
 
+  // PayPal Integration Methods
+  async getOrganizationByPayPalSubscriptionId(subscriptionId: string) {
+    return this._subscriptionRepository.getOrganizationByPayPalSubscriptionId(subscriptionId);
+  }
+
   useCredit<T>(organization: Organization, type = 'ai_images', func: () => Promise<T>) : Promise<T> {
     return this._subscriptionRepository.useCredit(organization, type, func);
   }
@@ -162,16 +167,26 @@ export class SubscriptionService {
   ) {
     if (!code) {
       try {
+        // For PayPal subscription requests with new organizations, allow initial subscription creation
+        // Don't block creation if modifySubscription returns false (organization not found yet)
         const load = await this.modifySubscription(
           customerId,
           totalChannels,
           billing
         );
-        if (!load) {
+        if (!load && !org?.id) {
+          // If no organization and modifySubscription fails, this is likely a new subscription
+          console.log(`Creating new subscription for customer ${customerId}, skipping modification check`);
+        } else if (!load) {
           return {};
         }
       } catch (e) {
-        return {};
+        console.error(`modifySubscription failed (this is normal for new subscriptions):`, e instanceof Error ? e.message : String(e));
+        if (!org?.id) {
+          console.log(`Continuing with new subscription creation for customer ${customerId}`);
+        } else {
+          return {};
+        }
       }
     }
     return this._subscriptionRepository.createOrUpdateSubscription(
@@ -245,6 +260,32 @@ export class SubscriptionService {
       null,
       undefined,
       { id: orgId }
+    );
+  }
+
+  async createPayPalSubscription(
+    isTrailing: boolean,
+    identifier: string,
+    customerId: string,
+    billing: 'FREE' | 'STANDARD' | 'PRO' | 'TEAM' | 'ULTIMATE',
+    period: 'MONTHLY' | 'YEARLY',
+    cancelAt: number | null,
+    org: { id: string }
+  ) {
+    // Get pricing data for the billing tier
+    const planPricing = pricing[billing] || pricing.PRO;
+    const totalChannels = planPricing.channel || 1;
+
+    return this.createOrUpdateSubscription(
+      isTrailing,
+      identifier,
+      customerId,
+      totalChannels,
+      billing,
+      period,
+      cancelAt,
+      undefined,
+      org
     );
   }
 

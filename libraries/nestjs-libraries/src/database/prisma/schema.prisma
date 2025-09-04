@@ -43,6 +43,9 @@ model Organization {
   errors             Errors[]
   PaymentTransaction PaymentTransaction[]
   UsageRecord        UsageRecord[]
+  paypalCustomer     PayPalCustomer?      // PayPal customer data
+  paypalBillingMessages PayPalBillingMessage[]
+  paypalBillingHistory PayPalBillingHistory[]
 }
 
 model Tags {
@@ -395,6 +398,109 @@ model PaymentTransaction {
   @@index([providerTransactionId])
   @@index([status])
   @@index([createdAt])
+}
+
+// PayPal-specific customer mapping and billing management
+model PayPalCustomer {
+  id             String       @id @default(uuid())
+  organizationId String       @unique
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  // PayPal customer data
+  paypalPayerId   String? // PayPal payer ID
+  paypalEmail     String? // PayPal email
+  paypalName      String? // PayPal full name
+
+  // Billing portal preferences
+  billingCycle     String    @default("monthly") // monthly, yearly
+  paymentMethod    String?   // PayPal, credit card, etc.
+
+  // Subscription management
+  currentPlanId    String?   // PayPal subscription plan ID
+  subscriptionStatus String   @default("NONE") // NONE, ACTIVE, PENDING, CANCELLED, PAST_DUE
+
+  // Custom fields for billing portal
+  portalEnabled     Boolean   @default(true)
+  emailNotifications Boolean @default(true)
+  autoRenew         Boolean   @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([paypalPayerId])
+  @@index([subscriptionStatus])
+}
+
+model PayPalBillingMessage {
+  id             String         @id @default(uuid())
+  organizationId String
+  organization   Organization   @relation(fields: [organizationId], references: [id])
+
+  // Message details
+  type          BillingMessageType // INFO, WARNING, ERROR, SUCCESS
+  title         String
+  message       String
+  actionUrl     String? // URL for user action
+  actionLabel   String? // Label for action button
+
+  // Visibility and timing
+  isDismissable Boolean      @default(true)
+  expiresAt     DateTime?    // Auto-dismiss date
+  dismissedAt   DateTime?
+
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@index([organizationId])
+  @@index([type])
+  @@index([dismissedAt])
+}
+
+model PayPalBillingHistory {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  // History details
+  action        BillingAction // CANCELLED, UPGRADED, DOWNGRADED, RENEWED, FAILED
+  description   String
+  oldValue      String?       // Previous value
+  newValue      String?       // New value
+
+  // Related data
+  subscriptionId String?
+  transactionId  String?
+
+  // Metadata
+  metadata      Json?
+
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@index([organizationId])
+  @@index([action])
+  @@index([createdAt])
+}
+
+enum BillingMessageType {
+  INFO
+  WARNING
+  ERROR
+  SUCCESS
+}
+
+enum BillingAction {
+  SUBSCRIPTION_CREATED
+  SUBSCRIPTION_UPDATED
+  SUBSCRIPTION_CANCELLED
+  PAYMENT_SUCCEEDED
+  PAYMENT_FAILED
+  PLAN_CHANGED
+  TRIAL_STARTED
+  TRIAL_ENDED
+  RENEWAL_SUCCESS
+  RENEWAL_FAILED
 }
 
 model UsageRecord {

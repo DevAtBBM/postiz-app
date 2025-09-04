@@ -52,8 +52,8 @@ export const pricing: PricingInterface = {
   },
   STANDARD: {
     current: 'STANDARD',
-    month_price: 29,
-    year_price: 278,
+    month_price: 8,
+    year_price: 80,
     channel: 5,
     posts_per_month: 200, // Updated for Standard: 200 posts/month
     image_generation_count: 10, // Updated for Standard: 10 AI images/month
@@ -74,34 +74,10 @@ export const pricing: PricingInterface = {
     maxTeamMembers: 1,
     maxWebhooks: 2,
   },
-  TEAM: {
-    current: 'TEAM',
-    month_price: 39,
-    year_price: 374,
-    channel: 10,
-    posts_per_month: 1000000, // Unlimited posts
-    image_generation_count: 100,
-    community_features: true,
-    team_members: true,
-    featured_by_gitroom: true,
-    ai: true,
-    import_from_channels: true,
-    image_generator: true,
-    public_api: true,
-    webhooks: 10,
-    autoPost: true,
-    generate_videos: 10,
-    maxChannels: 10,
-    maxPostsPerMonth: 1000000,
-    maxAiImagesPerMonth: 100,
-    maxAiVideosPerMonth: 10,
-    maxTeamMembers: 10,
-    maxWebhooks: 10,
-  },
   PRO: {
     current: 'PRO',
-    month_price: 49,
-    year_price: 470,
+    month_price: 20,
+    year_price: 200,
     channel: 20, // Updated for Pro: 20 channels
     posts_per_month: 1000000, // Unlimited posts
     image_generation_count: 200, // Updated for Pro: 200 AI images/month
@@ -124,8 +100,8 @@ export const pricing: PricingInterface = {
   },
   ULTIMATE: {
     current: 'ULTIMATE',
-    month_price: 99,
-    year_price: 950,
+    month_price: 100,
+    year_price: 1000,
     channel: 100,
     posts_per_month: 1000000, // Unlimited posts
     image_generation_count: 500,

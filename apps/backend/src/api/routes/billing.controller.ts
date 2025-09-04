@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Param, Post, Req, Query } from '@nestjs/common';
 import { SubscriptionService } from '@gitroom/nestjs-libraries/database/prisma/subscriptions/subscription.service';
-// import { StripeService } from '@gitroom/nestjs-libraries/services/stripe.service'; // Temporarily disabled
+import { PayPalService } from '@gitroom/nestjs-libraries/services/paypal.service';
 import { GetOrgFromRequest } from '@gitroom/nestjs-libraries/user/org.from.request';
 import { Organization, User } from '@prisma/client';
 import { BillingSubscribeDto } from '@gitroom/nestjs-libraries/dtos/billing/billing.subscribe.dto';
@@ -15,11 +15,11 @@ import { Nowpayments } from '@gitroom/nestjs-libraries/crypto/nowpayments';
 export class BillingController {
   constructor(
     private _subscriptionService: SubscriptionService,
-    // private _stripeService: StripeService, // Temporarily disabled - using mock PayPal
+    private _paypalService: PayPalService,
     private _notificationService: NotificationService,
     private _nowpayments: Nowpayments
   ) {
-    console.log('BillingController initialized with PayPal (Stripe temporarily disabled)');
+    console.log('BillingController initialized with PayPal Service integration');
   }
 
   @Get('/check/:id')
@@ -50,27 +50,65 @@ export class BillingController {
   }
 
   @Post('/subscribe')
-  subscribe(
+  async subscribe(
     @GetOrgFromRequest() org: Organization,
     @GetUserFromRequest() user: User,
     @Body() body: BillingSubscribeDto,
     @Req() req: Request
-  ) {
-    const uniqueId = req?.cookies?.track || `mock_${Date.now()}`;
+  ): Promise<any> {
+    try {
+      const uniqueId = req?.cookies?.track || `${org.id}_${Date.now()}`;
 
-    // Mock PayPal subscription creation
-    console.log(`PayPal: Creating subscription for org ${org.id}, plan: ${body.billing}`);
+      // Use real PayPalService to create subscription
+      const subscriptionResult = await this._paypalService.subscribe(
+        uniqueId,
+        org.id,
+        user.id,
+        body,
+        false // allowTrial could be derived from org data or body
+      );
 
-    return {
-      id: `PAYPAL_SUB_${uniqueId}`,
-      status: 'APPROVAL_PENDING',
-      links: [
-        {
-          href: `https://www.paypal.com/webapps/billing/subscriptions?approval-session=${uniqueId}`,
-          rel: 'approve'
-        }
-      ]
-    };
+      console.log(`PayPal subscription created for org ${org.id}, plan: ${body.billing}`);
+
+      // Format response to match frontend expectations
+      // Frontend expects { url, portal } format
+      const approvalLink = subscriptionResult.links?.find(link => link.rel === 'approve');
+      const url = approvalLink ? approvalLink.href : null;
+
+      // Create database mapping for webhook lookup using PayPal subscription ID as identifier
+      try {
+        await this._subscriptionService.createPayPalSubscription(
+          false, // isTrailing
+          subscriptionResult.id, // Use PayPal subscription ID as identifier for webhook lookup
+          subscriptionResult.id, // customerId (using PayPal subscription ID)
+          body.billing as any, // billing tier
+          'MONTHLY', // period (default, can be updated by webhook)
+          null, // cancelAt
+          { id: org.id } // organization
+        );
+
+        // Also update organization's payment ID for future reference
+        await this._subscriptionService.updateCustomerId(org.id, subscriptionResult.id);
+
+        console.log(`✅ Successfully created database mapping for PayPal subscription ${subscriptionResult.id} -> org ${org.id}`);
+      } catch (error) {
+        console.error(`❌ Failed to create database mapping for PayPal subscription ${subscriptionResult.id} -> org ${org.id}:`, error instanceof Error ? error.message : String(error));
+
+        // Don't fail the entire request - PayPal subscription was created successfully
+        // The webhook will need to find the organization differently if this mapping fails
+        console.warn(`⚠️  PayPal subscription created but database mapping failed - webhook will try to find organization by other means`);
+      }
+
+      return {
+        url: url, // PayPal approval URL for frontend redirect
+        subscriptionId: subscriptionResult.id, // PayPal subscription ID
+        subscription: subscriptionResult, // Full PayPal response for reference
+        ...subscriptionResult // Include all original fields
+      };
+    } catch (error) {
+      console.error('Error creating PayPal subscription:', error);
+      throw error;
+    }
   }
 
   @Get('/portal')

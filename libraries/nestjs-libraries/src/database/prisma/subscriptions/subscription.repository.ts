@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import {
   PrismaRepository,
   PrismaTransaction,
@@ -68,6 +68,8 @@ enum SubscriptionChangeReason {
 
 @Injectable()
 export class SubscriptionRepository {
+  private readonly logger = new Logger(SubscriptionRepository.name);
+
   constructor(
     private readonly _subscription: PrismaRepository<'subscription'>,
     private readonly _organization: PrismaRepository<'organization'>,
@@ -322,6 +324,52 @@ export class SubscriptionRepository {
         paymentId: customerId,
       },
     });
+  }
+
+  // PayPal Integration Methods
+  async getOrganizationByPayPalSubscriptionId(subscriptionId: string) {
+    this.logger.log(`Looking up organization for PayPal subscription: ${subscriptionId}`);
+
+    // First: search in subscriptions by PayPal identifier
+    const subscription = await this._subscription.model.subscription.findFirst({
+      where: {
+        identifier: subscriptionId,
+        deletedAt: null
+      },
+      include: { organization: true }
+    });
+
+    if (subscription?.organization) {
+      this.logger.log(`Found organization ${subscription.organization.id} by subscription identifier`);
+      return subscription.organization;
+    }
+
+    // Second: search in organizations by paymentId that might contain PayPal info
+    const organization = await this._organization.model.organization.findFirst({
+      where: {
+        paymentId: { contains: subscriptionId }
+      }
+    });
+
+    if (organization) {
+      this.logger.log(`Found organization ${organization.id} by paymentId containing ${subscriptionId}`);
+      return organization;
+    }
+
+    // Third: search by exact paymentId match
+    const exactOrg = await this._organization.model.organization.findFirst({
+      where: {
+        paymentId: subscriptionId
+      }
+    });
+
+    if (exactOrg) {
+      this.logger.log(`Found organization ${exactOrg.id} by exact paymentId match`);
+      return exactOrg;
+    }
+
+    this.logger.warn(`No organization found for PayPal subscription: ${subscriptionId}`);
+    return null;
   }
 
   // ================================================
