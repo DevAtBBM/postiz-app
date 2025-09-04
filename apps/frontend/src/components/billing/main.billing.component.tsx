@@ -536,11 +536,20 @@ export const MainBillingComponent: FC<{
       </div>
       {/* {!subscription?.id && <PurchaseCrypto />} */}
       {!!subscription?.id && (
-        <div className="flex justify-center mt-[20px] gap-[10px]">
+        <div className="flex justify-center mt-[20px] gap-[10px] flex-wrap">
+          <Button onClick={() => router.push('/billing/transactions')}>
+            {t('transaction_history', 'Transaction History')}
+          </Button>
+          <Button onClick={() => router.push('/billing/failed-payments')}>
+            {t('failed_payments', 'Failed Payments')}
+          </Button>
+          <Button onClick={() => router.push('/billing/issues')}>
+            {t('billing_issues', 'Billing Issues')}
+          </Button>
           <Button onClick={updatePayment}>
             {t(
-              'update_payment_method_invoices_history',
-              'Update Payment Method / Invoices History'
+              'update_payment_method',
+              'Update Payment Method'
             )}
           </Button>
           {isGeneral && !subscription?.cancelAt && (

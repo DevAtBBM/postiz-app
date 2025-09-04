@@ -510,4 +510,42 @@ export class SubscriptionService {
       }
     };
   }
+
+  // ================================================
+  // Transaction History Methods
+  // ================================================
+
+  async getTransactionHistory(organizationId: string, limit = 20) {
+    return this._subscriptionRepository.getPaymentTransactionsByOrganization(organizationId, limit);
+  }
+
+  async getSubscriptionWithTransactionHistory(organizationId: string) {
+    return this._subscriptionRepository.getSubscriptionWithHistory(organizationId);
+  }
+
+  async getSubscriptionHistory(subscriptionId: string, limit = 10) {
+    return this._subscriptionRepository.getSubscriptionHistory(subscriptionId, limit);
+  }
+
+  async getAllPaymentTransactions(
+    limit = 50,
+    offset = 0,
+    status?: string,
+    provider?: string
+  ) {
+    return this._subscriptionRepository.getAllPaymentTransactions(
+      limit,
+      offset,
+      status as any,
+      provider as any
+    );
+  }
+
+  async getFailedPaymentsByOrganization(organizationId: string) {
+    return this._subscriptionRepository.getFailedPaymentsByOrganization(organizationId);
+  }
+
+  async retryFailedPayment(organizationId: string, paymentId: string) {
+    return this._subscriptionRepository.retryFailedPayment(organizationId, paymentId);
+  }
 }

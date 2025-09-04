@@ -362,6 +362,167 @@ export class BillingController {
     }
   }
 
+  @Get('/transactions')
+  async getTransactionHistory(
+    @GetOrgFromRequest() org: Organization,
+    @Query() query: { limit?: number; offset?: number }
+  ) {
+    try {
+      const limit = query.limit || 20;
+      const offset = query.offset || 0;
+
+      const transactions = await this._subscriptionService.getTransactionHistory(org.id, limit);
+
+      return transactions.map(transaction => ({
+        id: transaction.id,
+        amount: transaction.amount,
+        currency: transaction.currency,
+        status: transaction.status,
+        provider: transaction.provider,
+        providerTransactionId: transaction.providerTransactionId,
+        paymentMethod: transaction.paymentMethod,
+        type: transaction.type,
+        description: transaction.description,
+        failureReason: transaction.failureReason,
+        createdAt: transaction.createdAt,
+        processedAt: transaction.processedAt,
+        subscription: transaction.subscription ? {
+          id: transaction.subscription.id,
+          subscriptionTier: transaction.subscription.subscriptionTier,
+          period: transaction.subscription.period,
+        } : null,
+      }));
+    } catch (error) {
+      console.error('Error fetching transaction history:', error);
+      throw new Error('Failed to fetch transaction history');
+    }
+  }
+
+  @Get('/failed-payments')
+  async getFailedPayments(@GetOrgFromRequest() org: Organization) {
+    try {
+      // Get failed payment transactions for this organization
+      const failedPayments = await this._subscriptionService.getFailedPaymentsByOrganization(org.id);
+
+      return failedPayments.map(payment => ({
+        id: payment.id,
+        amount: payment.amount,
+        currency: payment.currency,
+        status: payment.status,
+        provider: payment.provider,
+        providerTransactionId: payment.providerTransactionId,
+        paymentMethod: payment.paymentMethod,
+        type: payment.type,
+        description: payment.description,
+        failureReason: payment.failureReason,
+        createdAt: payment.createdAt,
+        processedAt: payment.processedAt,
+        subscription: payment.subscription ? {
+          id: payment.subscription.id,
+          subscriptionTier: payment.subscription.subscriptionTier,
+        } : null,
+      }));
+    } catch (error) {
+      console.error('Error fetching failed payments:', error);
+      throw new Error('Failed to fetch failed payments');
+    }
+  }
+
+  @Post('/retry-payment')
+  async retryPayment(
+    @GetOrgFromRequest() org: Organization,
+    @Body() body: { paymentId: string }
+  ) {
+    try {
+      // Logic to retry the failed payment
+      // This would integrate with your payment provider to retry the charge
+      const result = await this._subscriptionService.retryFailedPayment(org.id, body.paymentId);
+
+      // Send success notification
+      await this.notifyPaymentRetry(org, body.paymentId);
+
+      return { success: true, message: 'Payment retry initiated' };
+    } catch (error) {
+      console.error('Error retrying payment:', error);
+      throw new Error('Failed to retry payment');
+    }
+  }
+
+  @Post('/report-billing-issue')
+  async reportBillingIssue(
+    @GetOrgFromRequest() org: Organization,
+    @GetUserFromRequest() user: User,
+    @Body() body: {
+      issueType: 'PAYMENT_FAILED' | 'SERVICE_PROBLEM' | 'ACCOUNT_QUESTION' | 'OTHER';
+      description: string;
+      severity: 'LOW' | 'MEDIUM' | 'HIGH';
+    }
+  ) {
+    try {
+      // Send billing issue email
+      const subject = `Billing Issue Report - ${org.name}`;
+      const emailBody = `
+        Billing Issue Report
+
+        Organization: ${org.name}
+        Organization ID: ${org.id}
+        User: ${user.name || user.email} (${user.email})
+
+        Issue Type: ${body.issueType}
+        Severity: ${body.severity}
+        Description: ${body.description}
+
+        Reported at: ${new Date().toISOString()}
+      `;
+
+      await this._notificationService.sendEmail(
+        process.env.EMAIL_FROM_ADDRESS,
+        subject,
+        emailBody,
+        process.env.SUPPORT_EMAIL_ADDRESS || process.env.EMAIL_FROM_ADDRESS
+      );
+
+      // Send confirmation to user
+      const userConfirmation = `
+        Dear ${user.name || 'User'},
+
+        Thank you for reporting a billing issue. Our support team will review your case and respond within 24 hours.
+
+        Issue Details:
+        - Type: ${body.issueType}
+        - Severity: ${body.severity}
+
+        Best regards,
+        Gitroom Support Team
+      `;
+
+      await this._notificationService.sendEmail(
+        process.env.EMAIL_FROM_ADDRESS,
+        'Billing Issue Received - Reference #' + Math.random().toString(36).substr(2, 6).toUpperCase(),
+        userConfirmation,
+        user.email
+      );
+
+      return {
+        success: true,
+        message: 'Billing issue reported successfully. You will receive a response within 24 hours.'
+      };
+    } catch (error) {
+      console.error('Error reporting billing issue:', error);
+      throw new Error('Failed to report billing issue');
+    }
+  }
+
+  private async notifyPaymentRetry(org: Organization, paymentId: string) {
+    // Send payment retry notification
+    await this._notificationService.sendEmail(
+      process.env.EMAIL_FROM_ADDRESS,
+      'Payment Retry Initiated',
+      `Payment retry has been initiated for ${org.name} (Payment ID: ${paymentId})`,
+      process.env.PAYMENT_NOTIFICATION_EMAIL || process.env.EMAIL_FROM_ADDRESS
+    );
+  }
+
   @Get('/admin/payments')
   async getPaymentTransactionsAdmin(
     @GetUserFromRequest() user: User,
@@ -372,45 +533,43 @@ export class BillingController {
     }
 
     try {
-      // Return mock payment data for now
-      const mockPayments = [
-        {
-          id: 'pay-1',
-          organizationName: 'Tech Startup Ltd',
-          amount: 4900,
-          currency: 'USD',
-          status: 'SUCCEEDED',
-          provider: 'RAZORPAY',
-          transactionId: 'pay_FH8dnPfVmVL57l',
-          createdAt: '2024-08-01T10:30:00Z',
-          processedAt: '2024-08-01T10:30:15Z',
-        },
-        {
-          id: 'pay-2',
-          organizationName: 'Marketing Agency',
-          amount: 37400,
-          currency: 'USD',
-          status: 'FAILED',
-          provider: 'STRIPE',
-          transactionId: 'pi_3NpRDxJvIdvPJ1QEd7PDZaX2',
-          createdAt: '2024-08-02T14:20:00Z',
-          processedAt: null,
-        },
-        {
-          id: 'pay-3',
-          organizationName: 'Small Business Inc',
-          amount: 2900,
-          currency: 'USD',
-          status: 'SUCCEEDED',
-          provider: 'PAYPAL',
-          transactionId: 'PAYID-L2PCLQA4TU941721A768915H',
-          createdAt: '2024-08-03T09:15:00Z',
-          processedAt: '2024-08-03T09:15:30Z',
-        }
-      ];
+      // Get all payment transactions from database
+      const payments = await this._subscriptionService.getAllPaymentTransactions(
+        query.limit || 50,
+        query.offset || 0,
+        query.status as any,
+        query.provider as any
+      );
 
-      return mockPayments.slice(0, Math.min(query.limit || 50, 50));
+      // Return formatted payment data
+      return payments.map(payment => ({
+        id: payment.id,
+        organizationId: payment.organizationId,
+        organizationName: payment.organization?.name || 'Unknown Organization',
+        organization: payment.organization ? {
+          id: payment.organization.id,
+          name: payment.organization.name
+        } : null,
+        subscriptionId: payment.subscriptionId,
+        subscription: payment.subscription ? {
+          id: payment.subscription.id,
+          subscriptionTier: payment.subscription.subscriptionTier,
+          period: payment.subscription.period,
+        } : null,
+        amount: payment.amount,
+        currency: payment.currency,
+        status: payment.status,
+        provider: payment.provider,
+        providerTransactionId: payment.providerTransactionId,
+        paymentMethod: payment.paymentMethod,
+        type: payment.type,
+        description: payment.description,
+        failureReason: payment.failureReason,
+        createdAt: payment.createdAt,
+        processedAt: payment.processedAt,
+      }));
     } catch (error) {
+      console.error('Error fetching payment transactions:', error);
       throw new Error('Failed to fetch payment transactions');
     }
   }
