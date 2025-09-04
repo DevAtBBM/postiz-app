@@ -449,6 +449,20 @@ export class SubscriptionService {
     };
   }
 
+  async calculateProrateAmount(
+    billing: 'STANDARD' | 'PRO' | 'ULTIMATE',
+    period: 'MONTHLY' | 'YEARLY' = 'MONTHLY'
+  ) {
+    // Get prorated amount from pricing data
+    const planPricing = pricing[billing];
+    if (!planPricing) {
+      return 0;
+    }
+
+    // Return the appropriate price based on period
+    return period === 'YEARLY' ? planPricing.year_price : planPricing.month_price;
+  }
+
   async validateSubscriptionUpgrade(
     currentSubscription: any,
     newTier: 'FREE' | 'STANDARD' | 'TEAM' | 'PRO' | 'ULTIMATE',

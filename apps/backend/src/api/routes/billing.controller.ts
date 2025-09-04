@@ -179,16 +179,24 @@ export class BillingController {
   }
 
   @Post('/prorate')
-  prorate(
+  async prorate(
     @GetOrgFromRequest() org: Organization,
     @Body() body: BillingSubscribeDto
   ) {
     // Mock PayPal proration calculation
-    console.log(`PayPal: Calculating proration for org ${org.id}, new plan: ${body.billing}`);
-    const proratedAmount = body.billing === 'PRO' ? 49 : body.billing === 'TEAM' ? 99 : 29;
+    console.log(`PayPal: Calculating proration for org ${org.id}, new plan: ${body.billing}, period: ${body?.period || 'MONTHLY'}`);
+
+    // Get prorated amount from subscription service
+    const period = body?.period || 'MONTHLY';
+    const proratedAmount = await this._subscriptionService.calculateProrateAmount(
+      body.billing as 'STANDARD' | 'PRO' | 'ULTIMATE',
+      period
+    );
+
     return {
+      price: proratedAmount,
       proratedAmount,
-      nextBillingDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days from now
+      nextBillingDate: new Date(Date.now() + (period === 'YEARLY' ? 365 : 30) * 24 * 60 * 60 * 1000)
     };
   }
 
