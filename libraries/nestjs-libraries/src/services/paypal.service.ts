@@ -72,29 +72,39 @@ export class PayPalService {
     return data.access_token;
   }
 
-  // Store PayPal plan IDs for caching
+  // Store PayPal plan IDs for caching - now includes period in key
   private paypalPlanIds: Map<string, string> = new Map();
 
-  private async ensureSubscriptionPlan(planName: string, pricing: any): Promise<string> {
-    if (this.paypalPlanIds.has(planName)) {
-      return this.paypalPlanIds.get(planName)!;
+  // Store mapping between PayPal plan IDs and our internal tier/period data
+  private paypalPlanMappings: Map<string, { tier: string; period: string }> = new Map();
+
+  private async ensureSubscriptionPlan(planName: string, pricing: any, period: 'MONTHLY' | 'YEARLY' = 'MONTHLY'): Promise<string> {
+    // Create unique key that includes both plan name and period
+    const planKey = `${planName}_${period}`;
+    if (this.paypalPlanIds.has(planKey)) {
+      return this.paypalPlanIds.get(planKey)!;
     }
 
     try {
       const accessToken = await this.getAccessToken();
       const planData = {
         product_id: await this.createProduct(planName, pricing),
-        name: `${planName} Plan`,
-        description: `Postnify ${planName} subscription plan`,
+        name: `${planName} Plan ${period === 'YEARLY' ? '(Yearly)' : '(Monthly)'}`,
+        description: `Postnify ${planName} subscription plan - ${period.toLowerCase()} billing`,
         status: 'ACTIVE',
         billing_cycles: [
           {
-            frequency: { interval_unit: 'MONTH', interval_count: 1 },
+            frequency: period === 'YEARLY'
+              ? { interval_unit: 'YEAR', interval_count: 1 }
+              : { interval_unit: 'MONTH', interval_count: 1 },
             tenure_type: 'REGULAR',
             sequence: 1,
             total_cycles: 0, // 0 means infinite
             pricing_scheme: {
-              fixed_price: { value: pricing.month_price.toString(), currency_code: 'USD' }
+              fixed_price: {
+                value: (period === 'YEARLY' ? pricing.year_price : pricing.month_price).toString(),
+                currency_code: 'USD'
+              }
             }
           }
         ],
@@ -124,9 +134,16 @@ export class PayPalService {
 
       const plan = await response.json();
       const planId = plan.id;
-      this.paypalPlanIds.set(planName, planId);
 
-      this.logger.log(`Created PayPal subscription plan ${planName} with ID ${planId}`);
+      // Update cache with both the specific plan key and the period-specific key
+      this.paypalPlanIds.set(planName, planId); // Legacy support
+      this.paypalPlanIds.set(planKey, planId); // New period-specific key
+
+      // Store mapping for webhook processing
+      this.paypalPlanMappings.set(planId, { tier: planName, period });
+
+      this.logger.log(`Created PayPal subscription plan ${planName} (${period}) with ID ${planId}`);
+      this.logger.log(`Plan mapping stored: ${planId} -> ${JSON.stringify({ tier: planName, period })}`);
       return planId;
     } catch (error) {
       this.logger.error('Error creating subscription plan:', error);
@@ -197,8 +214,11 @@ export class PayPalService {
         throw new Error(`Unknown subscription plan: ${body.billing}`);
       }
 
-      // Ensure subscription plan exists and get its ID
-      const planId = await this.ensureSubscriptionPlan(planKey, planPricing);
+      // Extract period from body (default to MONTHLY)
+      const period = (body.period || 'MONTHLY') as 'MONTHLY' | 'YEARLY';
+
+      // Ensure subscription plan exists with correct billing period
+      const planId = await this.ensureSubscriptionPlan(planKey, planPricing, period);
 
       // Get access token for authentication
       const accessToken = await this.getAccessToken();
@@ -246,7 +266,7 @@ export class PayPalService {
       // The billing controller creates the subscription record with PayPal ID as identifier
       // This allows webhooks to properly activate the subscription
 
-      this.logger.log(`Successfully created PayPal subscription with ID ${subscription.id}`);
+      this.logger.log(`Successfully created PayPal subscription with ID ${subscription.id} (${period})`);
 
       return {
         id: subscription.id,
@@ -254,8 +274,8 @@ export class PayPalService {
         links: subscription.links,
         organizationId: orgId,
         planName: planPricing.current,
-        amount: planPricing.month_price,
-        period: 'MONTHLY'
+        amount: period === 'YEARLY' ? planPricing.year_price : planPricing.month_price,
+        period: period
       } as PayPalCreateSubscriptionResponse;
     } catch (error) {
       this.logger.error('Error creating PayPal subscription:', error);

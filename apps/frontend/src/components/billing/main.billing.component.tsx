@@ -136,15 +136,16 @@ export const Features: FC<{
 };
 const Info: FC<{
   proceed: (feedback: string) => void;
+  isReactivation?: boolean;
 }> = (props) => {
   const [feedback, setFeedback] = useState('');
   const modal = useModals();
   const events = useFireEvents();
   const cancel = useCallback(() => {
     props.proceed(feedback);
-    events('cancel_subscription');
+    events(props.isReactivation ? 'reactivate_subscription' : 'cancel_subscription');
     modal.closeAll();
-  }, [modal, feedback]);
+  }, [modal, feedback, props.isReactivation]);
 
   const t = useT();
 
@@ -172,12 +173,18 @@ const Info: FC<{
       </button>
 
       <div>
-        {t('we_are_sorry_to_see_you_go', 'We are sorry to see you go :(')}
+        {props.isReactivation
+          ? t('we_are_glad_to_have_you_back', 'Welcome back! We\'re glad to have you back.')
+          : t('we_are_sorry_to_see_you_go', 'We are sorry to see you go :(')
+        }
         <br />
-        {t(
-          'would_you_mind_shortly_tell_us_what_we_could_have_done_better',
-          'Would you mind shortly tell us what we could have done better?'
-        )}
+        {props.isReactivation
+          ? t('what_brought_you_back', 'What brought you back to using our service?')
+          : t(
+              'would_you_mind_shortly_tell_us_what_we_could_have_done_better',
+              'Would you mind shortly tell us what we could have done better?'
+          )
+        }
       </div>
       <div>
         <Textarea
@@ -191,7 +198,13 @@ const Info: FC<{
       </div>
       <div>
         <Button disabled={feedback.length < 20} onClick={cancel}>
-          {feedback.length < 20 ? t('please_add_at_least', 'Please add at least 20 chars') : t('cancel_subscription', 'Cancel Subscription')}
+          {feedback.length < 20
+            ? t('please_add_at_least', 'Please add at least 20 chars')
+            : (props.isReactivation
+                ? t('reactivate_subscription_button', 'Reactivate Subscription')
+                : t('cancel_subscription', 'Cancel Subscription')
+              )
+          }
         </Button>
       </div>
     </div>
@@ -270,47 +283,76 @@ export const MainBillingComponent: FC<{
         );
       }
       if (billing === 'FREE') {
-        if (
-          subscription?.cancelAt ||
-          (await deleteDialog(
-            `Are you sure you want to cancel your subscription? ${messages.join(
-              ', '
-            )}`,
-            'Yes, cancel',
-            'Cancel Subscription'
-          ))
-        ) {
-          const info = await new Promise((res) => {
-            modal.openModal({
-              title: '',
-              withCloseButton: false,
-              classNames: {
-                modal: 'bg-transparent text-textColor',
-              },
-              children: <Info proceed={(e) => res(e)} />,
-              size: 'auto',
+        // Check if subscription is already cancelled
+        if (subscription?.cancelAt) {
+          // This is a reactivation request
+          const reactivateConfirm = await deleteDialog(
+            'Are you sure you want to reactivate your subscription? It will resume billing from your next payment cycle.',
+            'Yes, reactivate',
+            'Reactivate Subscription'
+          );
+
+          if (reactivateConfirm) {
+            setLoading(true);
+            const result = await (
+              await fetch('/billing/cancel', {
+                method: 'POST',
+                body: JSON.stringify({
+                  feedback: 'Reactivating subscription',
+                }),
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+              })
+            ).json();
+            setSubscription((subs) => ({
+              ...subs!,
+              cancelAt: result.cancel_at,
+            }));
+            toast.show('Subscription reactivated successfully');
+            setLoading(false);
+          }
+        } else {
+          // This is a cancellation request
+          if (
+            await deleteDialog(
+              `Are you sure you want to cancel your subscription? ${messages.join(
+                ', '
+              )}`,
+              'Yes, cancel',
+              'Cancel Subscription'
+            )
+          ) {
+            const info = await new Promise((res) => {
+              modal.openModal({
+                title: '',
+                withCloseButton: false,
+                classNames: {
+                  modal: 'bg-transparent text-textColor',
+                },
+                children: <Info proceed={(e) => res(e)} isReactivation={false} />,
+                size: 'auto',
+              });
             });
-          });
-          setLoading(true);
-          const { cancel_at } = await (
-            await fetch('/billing/cancel', {
-              method: 'POST',
-              body: JSON.stringify({
-                feedback: info,
-              }),
-              headers: {
-                'Content-Type': 'application/json',
-              },
-            })
-          ).json();
-          setSubscription((subs) => ({
-            ...subs!,
-            cancelAt: cancel_at,
-          }));
-          if (cancel_at)
+            setLoading(true);
+            const { cancel_at } = await (
+              await fetch('/billing/cancel', {
+                method: 'POST',
+                body: JSON.stringify({
+                  feedback: info,
+                }),
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+              })
+            ).json();
+            setSubscription((subs) => ({
+              ...subs!,
+              cancelAt: cancel_at,
+            }));
             toast.show('Subscription set to canceled successfully');
-          if (!cancel_at) toast.show('Subscription reactivated successfully');
-          setLoading(false);
+            setLoading(false);
+          }
         }
         return;
       }
@@ -559,6 +601,15 @@ export const MainBillingComponent: FC<{
               onClick={moveToCheckout('FREE')}
             >
               {t('cancel_subscription_1', 'Cancel subscription')}
+            </Button>
+          )}
+          {isGeneral && subscription?.cancelAt && (
+            <Button
+              className="bg-green-500"
+              loading={loading}
+              onClick={moveToCheckout('FREE')}
+            >
+              {t('reactivate_subscription', 'Reactivate subscription')}
             </Button>
           )}
         </div>

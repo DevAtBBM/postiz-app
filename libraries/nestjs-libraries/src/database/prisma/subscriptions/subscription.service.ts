@@ -548,4 +548,9 @@ export class SubscriptionService {
   async retryFailedPayment(organizationId: string, paymentId: string) {
     return this._subscriptionRepository.retryFailedPayment(organizationId, paymentId);
   }
+
+  // Method to update subscription cancelAt date (for proper cancellation/reactivation)
+  async updateSubscriptionCancelAt(organizationId: string, cancelAt: Date | null) {
+    return this._subscriptionRepository.updateSubscriptionCancelAt(organizationId, cancelAt);
+  }
 }

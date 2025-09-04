@@ -94,6 +94,67 @@ export class PaymentWebhooksController {
     }
   }
 
+  // Get PayPal access token for API calls
+  private async getPayPalAccessToken(): Promise<string> {
+    const paypalClientId = this.configService.get<string>('PAYPAL_CLIENT_ID');
+    const paypalClientSecret = this.configService.get<string>('PAYPAL_CLIENT_SECRET');
+    const paypalEnvironment = this.configService.get<string>('PAYPAL_ENVIRONMENT', 'sandbox');
+    const paypalBaseUrl = paypalEnvironment === 'production' ? 'https://api.paypal.com' : 'https://api.sandbox.paypal.com';
+
+    if (!paypalClientId || !paypalClientSecret) {
+      throw new Error('PayPal credentials not configured for webhook processing');
+    }
+
+    const auth = Buffer.from(`${paypalClientId}:${paypalClientSecret}`).toString('base64');
+
+    const response = await fetch(`${paypalBaseUrl}/v1/oauth2/token`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Basic ${auth}`,
+        'Accept': 'application/json',
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        grant_type: 'client_credentials'
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to get PayPal access token: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    return data.access_token;
+  }
+
+  // Fetch PayPal plan details when webhook doesn't provide plan name
+  private async fetchPayPalPlanDetails(planId: string) {
+    try {
+      const accessToken = await this.getPayPalAccessToken();
+      const paypalEnvironment = this.configService.get<string>('PAYPAL_ENVIRONMENT', 'sandbox');
+      const paypalBaseUrl = paypalEnvironment === 'production' ? 'https://api.paypal.com' : 'https://api.sandbox.paypal.com';
+
+      const response = await fetch(`${paypalBaseUrl}/v1/billing/plans/${planId}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        this.logger.warn(`Failed to fetch PayPal plan details for ${planId}: ${response.status}`);
+        return null;
+      }
+
+      const planDetails = await response.json();
+      return planDetails;
+    } catch (error) {
+      this.logger.error(`Error fetching PayPal plan details for ${planId}:`, error);
+      return null;
+    }
+  }
+
   // PayPal Webhook Signature Verification
   private async verifyPayPalSignature(
     body: any,
@@ -370,6 +431,7 @@ export class PaymentWebhooksController {
   private async handlePayPalSubscriptionActivated(payload: PayPalWebhookPayload) {
     const subscription = payload.resource;
     this.logger.log(`Processing subscription activated: ${subscription.id}`);
+    this.logger.log(`PayPal plan details - ID: ${subscription.plan_id}, Name: ${subscription.plan?.name}`);
 
     try {
       // Find organization by PayPal subscription ID
@@ -380,8 +442,35 @@ export class PaymentWebhooksController {
         return;
       }
 
+      // Try to get plan name from webhook, PayPal instance mapping, or fetch from PayPal API
+      let planName = subscription.plan?.name;
+      let planInfo = null;
+
+      if (!planName) {
+        // Check if we have plan mapping stored from PayPal service instance
+        // NOTE: This would require sharing the mapping between service instances, which would need more work
+        // For now, we'll try to parse from plan ID pattern as a fallback before API call
+
+        this.logger.log(`Plan name not provided in webhook, attempting to infer from plan ID: ${subscription.plan_id}`);
+        planInfo = this.inferPlanFromId(subscription.plan_id);
+        planName = planInfo?.planName;
+
+        if (!planName) {
+          // Fallback to API call
+          this.logger.log(`Plan inference failed, fetching from PayPal API for plan: ${subscription.plan_id}`);
+          const planDetails = await this.fetchPayPalPlanDetails(subscription.plan_id);
+          if (planDetails) {
+            planName = planDetails.name;
+            this.logger.log(`Fetched plan name from PayPal API: ${planName}`);
+          } else {
+            this.logger.warn(`Failed to fetch plan details for ${subscription.plan_id}`);
+          }
+        }
+      }
+
       // Map PayPal plan to our tier system
-      const tier = this.mapPayPalPlanToTier(subscription.plan_id, subscription.plan?.name);
+      const tier = this.mapPayPalPlanToTier(subscription.plan_id, planName);
+      this.logger.log(`Mapped PayPal plan ${subscription.plan_id} (${planName}) to tier: ${tier}`);
 
       // Update organization's payment ID with PayPal info
       if (subscription.subscriber) {
@@ -389,9 +478,46 @@ export class PaymentWebhooksController {
       }
 
       // Create or update subscription in database
-      // Determine if this is a new subscription or updating an existing one
-      const period = subscription.billing_info ?
-        (subscription.billing_info.last_payment?.time ? 'YEARLY' : 'MONTHLY') : 'MONTHLY';
+      // Priority: Use the fetched PayPal plan name data, then fall back to existing subscription
+      let period: 'MONTHLY' | 'YEARLY' = 'MONTHLY';
+
+      try {
+        // First priority: Check if planName indicates billing period (e.g., "STANDARD Plan (Monthly)")
+       // const planName = subscription.plan?.name || '';
+        if (planName) {
+          // Debug logging to see exactly what's being checked
+          const lowercaseName = planName.toLowerCase();
+          this.logger.log(`DEBUG: Plan name checking: "${planName}" -> "${lowercaseName}", contains 'month': ${lowercaseName.includes('month')}, contains 'year': ${lowercaseName.includes('year')}`);
+
+          if (lowercaseName.includes('year')) {
+            period = 'YEARLY';
+            this.logger.log(`Period determined from PayPal plan name: ${period} (${planName}) for org ${organization.id}`);
+          } else if (lowercaseName.includes('month')) {
+            period = 'MONTHLY';
+            this.logger.log(`Period determined from PayPal plan name: ${period} (${planName}) for org ${organization.id}`);
+          } else {
+            // Plan name doesn't clearly indicate period, check existing subscription
+            const existingSubscription = await this.subscriptionService.getSubscription(organization.id);
+            if (existingSubscription) {
+              period = existingSubscription.period;
+              this.logger.log(`Using existing subscription period: ${period} for org ${organization.id}`);
+            } else {
+              this.logger.log(`No period indication in plan name or existing subscription, using default: ${period}`);
+            }
+          }
+        } else {
+          // No plan name available, check existing subscription
+          const existingSubscription = await this.subscriptionService.getSubscription(organization.id);
+          if (existingSubscription) {
+            period = existingSubscription.period;
+            this.logger.log(`Using existing subscription period: ${period} for org ${organization.id}`);
+          } else {
+            this.logger.log(`No plan name or existing subscription found, using default period: ${period}`);
+          }
+        }
+      } catch (error) {
+        this.logger.warn(`Could not determine subscription period, defaulting to MONTHLY: ${error}`);
+      }
 
       await this.subscriptionService.createOrUpdateSubscription(
         false, // isTrailing
@@ -416,17 +542,43 @@ export class PaymentWebhooksController {
     }
   }
 
+  // Try to infer plan information from PayPal plan ID when webhook doesn't provide details
+  private inferPlanFromId(planId: string) {
+    try {
+      // Since in-process caching isn't available across instances, we rely on inference
+      // based on known PayPal plan ID patterns (though these are typically random)
+
+      // For now, we can't reliably infer from ID alone since PayPal generates random IDs
+      // This would require a database table to store PayPal plan ID -> tier/period mappings
+
+      this.logger.log(`Cannot reliably infer plan from PayPal ID ${planId} - will fetch from API`);
+      return null;
+
+    } catch (error) {
+      this.logger.error(`Error inferring plan from ID ${planId}:`, error);
+      return null;
+    }
+  }
+
   // Helper method to map PayPal plan IDs/names to our tier system
   private mapPayPalPlanToTier(planId: string | undefined, planName: string | undefined): 'FREE' | 'STANDARD' | 'PRO' | 'TEAM' | 'ULTIMATE' {
     // Priority: Try to parse from plan name first, then plan ID
     const planText = (planName || planId || '').toLowerCase();
 
+    // Handle new plan names that include period in parentheses, e.g., "PRO Plan (Monthly)"
     if (planText.includes('ultimate')) return 'ULTIMATE';
     if (planText.includes('team')) return 'TEAM';
     if (planText.includes('pro')) return 'PRO';
     if (planText.includes('standard')) return 'STANDARD';
 
-    // Default to PRO for PayPal subscriptions (most common paid tier)
+    // Enhanced fallback: Try to parse tier from PayPal plan ID pattern if available
+    if (planId) {
+      // PayPal plan IDs are typically random, but we might have stored them with metadata
+      // For most cases where the plan name is fetched via API, this should work
+    }
+
+    // Final fallback: If we can't determine from plan name/ID, check the billing controller request context
+    // For now, maintain existing fallback behavior
     this.logger.warn(`Could not map PayPal plan '${planName || planId}' to tier, defaulting to PRO`);
     return 'PRO';
   }

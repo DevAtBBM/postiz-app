@@ -82,7 +82,7 @@ export class BillingController {
           subscriptionResult.id, // Use PayPal subscription ID as identifier for webhook lookup
           subscriptionResult.id, // customerId (using PayPal subscription ID)
           body.billing as any, // billing tier
-          'MONTHLY', // period (default, can be updated by webhook)
+          body.period || 'MONTHLY', // period (use user's selection)
           null, // cancelAt
           { id: org.id } // organization
         );
@@ -166,16 +166,46 @@ export class BillingController {
     @GetUserFromRequest() user: User,
     @Body() body: { feedback: string }
   ) {
-    await this._notificationService.sendEmail(
-      process.env.EMAIL_FROM_ADDRESS,
-      'Subscription Cancelled',
-      `Organization ${org.name} has cancelled their subscription because: ${body.feedback}`,
-      user.email
-    );
+    // Get current subscription
+    const currentSubscription = await this._subscriptionService.getSubscriptionByOrganizationId(org.id);
 
-    // Mock PayPal cancellation
-    console.log(`PayPal: Cancelling subscription for org ${org.id}`);
-    return { cancelled: true };
+    if (!currentSubscription) {
+      throw new Error('No active subscription found');
+    }
+
+    // Check if subscription is already cancelled (has cancelAt set)
+    if (currentSubscription.cancelAt) {
+      // Reactivate the subscription - clear the cancelAt date
+      await this._subscriptionService.updateSubscriptionCancelAt(org.id, null);
+
+      console.log(`PayPal: Reactivating subscription for org ${org.id}`);
+
+      // Send reactivation notification
+      await this._notificationService.sendEmail(
+        process.env.EMAIL_FROM_ADDRESS,
+        'Subscription Reactivated',
+        `Organization ${org.name} has reactivated their subscription.`,
+        user.email
+      );
+
+      return { cancel_at: null, message: 'Subscription reactivated successfully' };
+    } else {
+      // Cancel the subscription - set cancelAt to end of current period
+      const cancelAt = currentSubscription.currentPeriodEnd || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+      await this._subscriptionService.updateSubscriptionCancelAt(org.id, cancelAt);
+
+      console.log(`PayPal: Cancelling subscription for org ${org.id}, scheduled to end at ${cancelAt}`);
+
+      // Send cancellation notification
+      await this._notificationService.sendEmail(
+        process.env.EMAIL_FROM_ADDRESS,
+        'Subscription Cancelled',
+        `Organization ${org.name} has cancelled their subscription because: ${body.feedback}`,
+        user.email
+      );
+
+      return { cancel_at: cancelAt, message: 'Subscription cancelled successfully' };
+    }
   }
 
   @Post('/prorate')

@@ -758,4 +758,18 @@ export class SubscriptionRepository {
         : 'Payment retry initiated. Please check back in a few minutes.'
     };
   }
+
+  // Method to update subscription cancelAt date (for cancellation and reactivation)
+  async updateSubscriptionCancelAt(organizationId: string, cancelAt: Date | null) {
+    return this._subscription.model.subscription.updateMany({
+      where: {
+        organizationId,
+        deletedAt: null,
+      },
+      data: {
+        cancelAt,
+        updatedAt: new Date(),
+      },
+    });
+  }
 }
