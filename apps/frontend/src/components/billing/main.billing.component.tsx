@@ -31,7 +31,7 @@ import { FinishTrial } from '@gitroom/frontend/components/billing/finish.trial';
 
 export const Prorate: FC<{
   period: 'MONTHLY' | 'YEARLY';
-  pack: 'STANDARD' | 'PRO';
+  pack: 'STANDARD' | 'PRO' | 'ULTIMATE';
 }> = (props) => {
   const { period, pack } = props;
   const t = useT();
@@ -76,7 +76,7 @@ export const Prorate: FC<{
   );
 };
 export const Features: FC<{
-  pack: 'FREE' | 'STANDARD' | 'PRO';
+  pack: 'FREE' | 'STANDARD' | 'PRO' | 'ULTIMATE';
 }> = (props) => {
   const { pack } = props;
   const features = useMemo(() => {
@@ -259,7 +259,7 @@ export const MainBillingComponent: FC<{
     return subscription?.subscriptionTier;
   }, [subscription, initialChannels, monthlyOrYearly, period]);
   const moveToCheckout = useCallback(
-    (billing: 'STANDARD' | 'PRO' | 'FREE') => async () => {
+    (billing: 'STANDARD' | 'PRO' | 'ULTIMATE' | 'FREE') => async () => {
       const messages = [];
       if (
         !pricing[billing].team_members &&
@@ -395,13 +395,29 @@ export const MainBillingComponent: FC<{
       {finishTrial && <FinishTrial close={() => setFinishTrial(false)} />}
       <div className="flex gap-[16px] [@media(max-width:1024px)]:flex-col [@media(max-width:1024px)]:text-center">
         {Object.entries(pricing)
-          .filter((f) => !isGeneral || f[0] !== 'FREE')
-          .map(([name, values]) => (
-            <div
-              key={name}
-              className="flex-1 bg-sixth border border-customColor6 rounded-[4px] p-[24px] gap-[16px] flex flex-col [@media(max-width:1024px)]:items-center"
-            >
-              <div className="text-[18px]">{name}</div>
+          .filter(([name]) => name !== 'TEAM') // Always show FREE, but hide TEAM
+          .map(([name, values]) => {
+            const isCurrentPlan = currentPackage === name.toUpperCase();
+            return (
+              <div
+                key={name}
+                className={clsx(
+                  "flex-1 bg-sixth border rounded-[4px] p-[24px] gap-[16px] flex flex-col [@media(max-width:1024px)]:items-center",
+                  isCurrentPlan
+                    ? "border-green-500 shadow-lg bg-green-50/10"
+                    : "border-customColor6"
+                )}
+              >
+              <div className="relative">
+                <div className="text-[18px] flex items-center gap-2">
+                  {name}
+                  {isCurrentPlan && (
+                    <span className="bg-green-500 text-white text-xs px-2 py-1 rounded-full">
+                      Current Plan
+                    </span>
+                  )}
+                </div>
+              </div>
               <div className="text-[38px] flex gap-[2px] items-center">
                 <div>
                   $
@@ -440,27 +456,48 @@ export const MainBillingComponent: FC<{
                     className={clsx(
                       subscription &&
                         name.toUpperCase() === 'FREE' &&
+                        (currentPackage !== 'FREE' || subscription?.cancelAt) &&
                         '!bg-red-500'
                     )}
                     onClick={moveToCheckout(
-                      name.toUpperCase() as 'STANDARD' | 'PRO'
+                      name.toUpperCase() as 'STANDARD' | 'PRO' | 'ULTIMATE'
                     )}
                   >
-                    {currentPackage === name.toUpperCase()
-                      ? 'Current Plan'
-                      : name.toUpperCase() === 'FREE'
-                      ? subscription?.cancelAt
-                        ? `Downgrade on ${dayjs
+                    {(() => {
+                      if (currentPackage === name.toUpperCase()) {
+                        return 'Current Plan';
+                      }
+
+                      if (name.toUpperCase() === 'FREE') {
+                        if (subscription?.cancelAt) {
+                          return `Downgrade on ${dayjs
                             .utc(subscription?.cancelAt)
                             .local()
-                            .format('D MMM, YYYY')}`
-                        : 'Cancel subscription'
-                      : // @ts-ignore
-                      (user?.tier === 'FREE' ||
-                          user?.tier?.current === 'FREE') &&
-                        user.allowTrial
-                      ? t('start_7_days_free_trial', 'Start 7 days free trial')
-                      : 'Purchase'}
+                            .format('D MMM, YYYY')}`;
+                        } else if (currentPackage === 'FREE') {
+                          return 'Cancel subscription';
+                        } else {
+                          return `Downgrade to ${name}`;
+                        }
+                      }
+
+                      // Determine if this is an upgrade or downgrade
+                      const planHierarchy = ['FREE', 'STANDARD', 'PRO', 'ULTIMATE'];
+                      const currentIndex = planHierarchy.indexOf(currentPackage);
+                      const targetIndex = planHierarchy.indexOf(name.toUpperCase());
+
+                      if (targetIndex > currentIndex) {
+                        const isFreeUser = currentPackage === 'FREE';
+                        if (isFreeUser && user?.allowTrial) {
+                          return t('start_7_days_free_trial', 'Start 7 days free trial');
+                        }
+                        return `Upgrade`;
+                      } else if (targetIndex < currentIndex) {
+                        return `Downgrade to ${name}`;
+                      } else {
+                        return 'Purchase';
+                      }
+                    })()}
                   </Button>
                 )}
                 {subscription &&
@@ -469,15 +506,26 @@ export const MainBillingComponent: FC<{
                   !!name && (
                     <Prorate
                       period={monthlyOrYearly === 'on' ? 'YEARLY' : 'MONTHLY'}
-                      pack={name.toUpperCase() as 'STANDARD' | 'PRO'}
+                      pack={name.toUpperCase() as 'STANDARD' | 'PRO' | 'ULTIMATE'}
                     />
                   )}
               </div>
-              <Features
-                pack={name.toUpperCase() as 'FREE' | 'STANDARD' | 'PRO'}
-              />
-            </div>
-          ))}
+                <div className="relative">
+                  <div className="text-[18px] flex items-center gap-2">
+                    {name}
+                    {isCurrentPlan && (
+                      <span className="bg-green-500 text-white text-xs px-2 py-1 rounded-full">
+                        Current Plan
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <Features
+                  pack={name.toUpperCase() as 'FREE' | 'STANDARD' | 'PRO' | 'ULTIMATE'}
+                />
+              </div>
+            );
+          })}
       </div>
       {/* {!subscription?.id && <PurchaseCrypto />} */}
       {!!subscription?.id && (
