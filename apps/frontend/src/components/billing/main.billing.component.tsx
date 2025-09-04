@@ -392,6 +392,15 @@ export const MainBillingComponent: FC<{
         </div>
       </div>
 
+      {/* Yearly Savings Message */}
+      {monthlyOrYearly === 'on' && (
+        <div className="flex justify-center mt-[8px]">
+          <div className="px-3 py-1 bg-green-500/10 border border-green-500/20 rounded-full text-sm text-green-600 font-medium">
+            🎉 {t('yearly_saving_message', 'Get 2 months FREE with annual billing!')}
+          </div>
+        </div>
+      )}
+
       {finishTrial && <FinishTrial close={() => setFinishTrial(false)} />}
       <div className="flex gap-[16px] [@media(max-width:1024px)]:flex-col [@media(max-width:1024px)]:text-center">
         {Object.entries(pricing)
