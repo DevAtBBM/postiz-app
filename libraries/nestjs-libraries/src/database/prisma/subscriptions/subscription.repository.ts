@@ -555,7 +555,9 @@ export class SubscriptionRepository {
     failureReason?: string,
     metadata?: any
   ) {
-    return this._prisma.paymentTransaction.create({
+    this.logger.log(`Creating payment transaction: organizationId=${organizationId}, subscriptionId=${subscriptionId}, amount=${amount}, type=${type}, provider=${provider}`);
+
+    const transaction = await this._prisma.paymentTransaction.create({
       data: {
         organizationId,
         subscriptionId,
@@ -571,6 +573,9 @@ export class SubscriptionRepository {
         ...(metadata && { metadata }),
       },
     });
+
+    this.logger.log(`✅ Payment transaction created successfully: ID=${transaction.id}, amount=${amount}, organization=${organizationId}`);
+    return transaction;
   }
 
   async getPaymentTransactionsByOrganization(organizationId: string, limit = 20) {

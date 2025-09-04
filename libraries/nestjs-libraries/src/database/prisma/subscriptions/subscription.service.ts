@@ -553,4 +553,35 @@ export class SubscriptionService {
   async updateSubscriptionCancelAt(organizationId: string, cancelAt: Date | null) {
     return this._subscriptionRepository.updateSubscriptionCancelAt(organizationId, cancelAt);
   }
+
+  // Method to create payment transaction (for webhook handlers)
+  async createPaymentTransaction(
+    organizationId: string,
+    subscriptionId: string | null,
+    provider: 'RAZORPAY' | 'PAYPAL' | 'STRIPE' | 'MANUAL',
+    providerTransactionId: string | null,
+    amount: number,
+    currency: string,
+    status: 'PENDING' | 'PROCESSING' | 'SUCCEEDED' | 'FAILED' | 'CANCELLED' | 'REFUNDED' | 'PARTIALLY_REFUNDED',
+    type: 'SUBSCRIPTION_PAYMENT' | 'UPGRADE_PAYMENT' | 'DOWNGRADE_CREDIT' | 'REFUND' | 'MANUAL_ADJUSTMENT',
+    paymentMethod?: string,
+    description?: string,
+    failureReason?: string,
+    metadata?: any
+  ) {
+    return this._subscriptionRepository.createPaymentTransaction(
+      organizationId,
+      subscriptionId,
+      provider,
+      providerTransactionId,
+      amount,
+      currency,
+      status,
+      type,
+      paymentMethod,
+      description,
+      failureReason,
+      metadata
+    );
+  }
 }

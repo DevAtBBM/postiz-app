@@ -401,6 +401,8 @@ export class BillingController {
       const limit = query.limit || 20;
       const offset = query.offset || 0;
 
+      console.log(`📊 Getting transaction history for organization ${org.id}, limit: ${limit}, offset: ${offset}`);
+
       const transactions = await this._subscriptionService.getTransactionHistory(org.id, limit);
 
       return transactions.map(transaction => ({
@@ -601,6 +603,36 @@ export class BillingController {
     } catch (error) {
       console.error('Error fetching payment transactions:', error);
       throw new Error('Failed to fetch payment transactions');
+    }
+  }
+
+  // Test endpoint to create a sample transaction (for debugging)
+  @Post('/test-transaction')
+  async createTestTransaction(@GetOrgFromRequest() org: Organization) {
+    try {
+      const testAmount = 49; // $49.00
+
+      await this._subscriptionService.createPaymentTransaction(
+        org.id,
+        null, // no specific subscription
+        'PAYPAL',
+        `test_${Date.now()}`,
+        testAmount * 100, // convert to cents
+        'USD',
+        'SUCCEEDED',
+        'SUBSCRIPTION_PAYMENT',
+        'Test Transaction',
+        'This is a test transaction for debugging purposes',
+        undefined, // no failure reason
+        { isTest: true }
+      );
+
+      console.log(`🧪 Created test transaction for organization ${org.id}, amount: ${testAmount}`);
+
+      return { success: true, message: 'Test transaction created successfully' };
+    } catch (error) {
+      console.error('❌ Error creating test transaction:', error);
+      throw error;
     }
   }
 }

@@ -62,6 +62,11 @@ interface PayPalWebhookPayload {
         time: string;
       };
     };
+    links?: Array<{
+      href: string;
+      rel: string;
+      method: string;
+    }>;
   };
   create_time: string;
   links?: Array<{
@@ -519,7 +524,8 @@ export class PaymentWebhooksController {
         this.logger.warn(`Could not determine subscription period, defaulting to MONTHLY: ${error}`);
       }
 
-      await this.subscriptionService.createOrUpdateSubscription(
+      // Create or update subscription in database
+      const createSubscriptionResult = await this.subscriptionService.createOrUpdateSubscription(
         false, // isTrailing
         subscription.id, // identifier (using PayPal subscription ID)
         `paypal_${subscription.subscriber?.payer_id || subscription.id}`, // customerId
@@ -531,7 +537,42 @@ export class PaymentWebhooksController {
         { id: organization.id } // organization
       );
 
-      // Log successful activation (simplified for now)
+      // Get the actual subscription from database to ensure it exists for foreign key
+      const actualSubscription = await this.subscriptionService.getSubscription(organization.id);
+      const subscriptionForTransaction = actualSubscription || null;
+
+      // Record subscription activation transaction
+      try {
+        // Get the pricing for this tier to record activation details
+        const planPricing = pricing[tier] || pricing.PRO;
+
+        // Convert monthly amount to cents, or use yearly amount if this is a yearly subscription
+        const amountInCents = period === 'YEARLY'
+          ? Math.round(planPricing.year_price * 100)
+          : Math.round(planPricing.month_price * 100);
+
+        await this.subscriptionService.createPaymentTransaction(
+          organization.id,
+          subscriptionForTransaction?.id || null, // Use null if subscription creation failed
+          'PAYPAL',
+          `activation_${subscription.id}`,
+          amountInCents,
+          'USD', // Default currency for simplicity
+          'SUCCEEDED', // Activation is successful
+          'SUBSCRIPTION_PAYMENT', // This activates the subscription payment
+          undefined, // paymentMethod
+          `PayPal subscription activated - ${tier} Plan (${period})`,
+          undefined, // no failure reason for activation
+          payload // full payload as metadata
+        );
+
+        this.logger.log(`📝 Recorded activation transaction for PayPal subscription: ${subscription.id}, tier: ${tier}, period: ${period}`);
+      } catch (transactionError) {
+        // Log the error but don't fail the activation process
+        this.logger.error(`⚠️ Failed to record activation transaction for subscription ${subscription.id}:`, transactionError);
+      }
+
+      // Log successful activation
       this.logger.log(`PayPal subscription ${subscription.id} activated for org ${organization.id}, tier: ${tier}`);
 
       this.logger.log(`Successfully activated PayPal subscription ${subscription.id} for organization ${organization.id}`);
@@ -615,7 +656,30 @@ export class PaymentWebhooksController {
         );
       }
 
-      // Log cancellation event (simplified for now)
+      // Record subscription cancellation transaction
+      try {
+        await this.subscriptionService.createPaymentTransaction(
+          organization.id,
+          currentSubscription?.id || null,
+          'PAYPAL',
+          `cancellation_${subscription.id}`,
+          0, // $0 for cancellation (no charge)
+          'USD',
+          'SUCCEEDED', // Cancellation is a successful operation
+          'MANUAL_ADJUSTMENT', // Cancellation is an adjustment
+          undefined, // paymentMethod
+          `PayPal subscription cancelled - ${currentSubscription?.subscriptionTier || 'Plan'}`,
+          undefined, // no failure reason for cancellation
+          payload // full payload as metadata
+        );
+
+        this.logger.log(`📝 Recorded cancellation transaction for PayPal subscription: ${subscription.id}, tier: ${currentSubscription?.subscriptionTier}`);
+      } catch (transactionError) {
+        // Log the error but don't fail the cancellation process
+        this.logger.error(`⚠️ Failed to record cancellation transaction for subscription ${subscription.id}:`, transactionError);
+      }
+
+      // Log cancellation event
       this.logger.log(`PayPal subscription ${subscription.id} cancelled for org ${organization.id}, downgraded from ${currentSubscription?.subscriptionTier} to FREE`);
 
       this.logger.log(`Successfully cancelled PayPal subscription ${subscription.id} for organization ${organization.id}`);
@@ -663,8 +727,29 @@ export class PaymentWebhooksController {
         return;
       }
 
-      // For now, log the successful payment
-      this.logger.log(`PayPal payment completed: ${payment.id} for org ${organization.id}, amount: ${amount.value} ${amount.currency_code}`);
+      // Get subscription information for the transaction
+      const subscription = await this.subscriptionService.getSubscription(organization.id);
+
+      // Convert amount to cents (database stores in cents)
+      const amountInCents = Math.round(parseFloat(amount.value) * 100);
+
+      // Create transaction record
+      await this.subscriptionService.createPaymentTransaction(
+        organization.id,
+        subscription?.id || null,
+        'PAYPAL',
+        payment.id,
+        amountInCents,
+        amount.currency_code,
+        'SUCCEEDED',
+        'SUBSCRIPTION_PAYMENT',
+        undefined, // paymentMethod
+        `PayPal subscription payment for ${subscription ? subscription.subscriptionTier : 'Plan'}`,
+        undefined, // failureReason
+        payload // full payload as metadata
+      );
+
+      this.logger.log(`Created payment transaction for PayPal payment: ${payment.id} for org ${organization.id}, amount: $${amount.value} (${amount.currency_code})`);
 
       this.logger.log(`Successfully processed PayPal payment completion: ${payment.id} for organization ${organization.id}`);
 
@@ -687,8 +772,38 @@ export class PaymentWebhooksController {
         return;
       }
 
-      // Log payment failure (simplified for now)
-      this.logger.warn(`PayPal payment failed: ${payment.id} for org ${organization.id} - user should be notified`);
+      // Get subscription information for the transaction
+      const subscription = await this.subscriptionService.getSubscription(organization.id);
+
+      // Extract amount if available
+      let amountInCents = 0;
+      let currency = 'USD';
+      let description = `PayPal payment failed for ${subscription ? subscription.subscriptionTier : 'Plan'}`;
+
+      if (payment.billing_info?.last_payment?.amount) {
+        const amount = payment.billing_info.last_payment.amount;
+        amountInCents = Math.round(parseFloat(amount.value) * 100);
+        currency = amount.currency_code;
+        description = `PayPal payment failed for ${subscription ? subscription.subscriptionTier : 'Plan'} - $${amount.value} (${amount.currency_code})`;
+      }
+
+      // Create transaction record for failed payment
+      await this.subscriptionService.createPaymentTransaction(
+        organization.id,
+        subscription?.id || null,
+        'PAYPAL',
+        payment.id,
+        amountInCents,
+        currency,
+        'FAILED',
+        'SUBSCRIPTION_PAYMENT',
+        undefined, // paymentMethod
+        description,
+        `PayPal payment failed - see payload for details`, // failureReason
+        payload // full payload as metadata
+      );
+
+      this.logger.warn(`Created failed payment transaction for PayPal payment: ${payment.id} for org ${organization.id} - user should be notified`);
 
       this.logger.log(`Successfully processed PayPal payment failure: ${payment.id} for organization ${organization.id}`);
 
@@ -701,6 +816,77 @@ export class PaymentWebhooksController {
   private async handlePayPalCaptureCompleted(payload: PayPalWebhookPayload) {
     const capture = payload.resource;
     this.logger.log(`Processing capture completed: ${capture.id}`);
+
+    try {
+      // Extract amount and transaction details from capture
+      const amount = capture.billing_info?.last_payment?.amount;
+      if (!amount) {
+        this.logger.warn(`No amount information in capture completed webhook: ${capture.id}`);
+        // Still log successful capture for one-time payments
+        this.logger.log(`Successfully processed PayPal capture for: ${capture.id}`);
+        return;
+      }
+
+      // Try to find organization by PayPal subscription ID or other identifiers
+      let organization = null;
+
+      // First, try to find by subscription if this is part of a subscription
+      if (payload.resource.links) {
+        for (const link of payload.resource.links) {
+          if (link.rel === 'up' && link.href.includes('/subscriptions/')) {
+            const subscriptionId = link.href.split('/subscriptions/')[1]?.split('/')[0];
+            if (subscriptionId) {
+              organization = await this.subscriptionService.getOrganizationByPayPalSubscriptionId(subscriptionId);
+              if (organization) {
+                this.logger.log(`Found organization via subscription link in capture: ${capture.id}`);
+                break;
+              }
+            }
+          }
+        }
+      }
+
+      // If not found via subscription, try other methods
+      if (!organization && capture.subscriber?.payer_id) {
+        organization = await this.subscriptionService.getOrganizationByPayPalSubscriptionId(capture.subscriber.payer_id);
+      }
+
+      if (!organization) {
+        this.logger.warn(`No organization found for PayPal capture: ${capture.id} - may be one-time payment`);
+        this.logger.log(`Successfully processed PayPal capture for: ${capture.id}`);
+        return;
+      }
+
+      // Get subscription information for the transaction
+      const subscription = await this.subscriptionService.getSubscription(organization.id);
+
+      // Convert amount to cents (database stores in cents)
+      const amountInCents = Math.round(parseFloat(amount.value) * 100);
+
+      // Create transaction record
+      await this.subscriptionService.createPaymentTransaction(
+        organization.id,
+        subscription?.id || null,
+        'PAYPAL',
+        capture.id,
+        amountInCents,
+        amount.currency_code,
+        'SUCCEEDED',
+        'SUBSCRIPTION_PAYMENT', // Could also be UPGRADE_PAYMENT or other types
+        undefined, // paymentMethod
+        `PayPal capture payment for ${subscription ? subscription.subscriptionTier : 'Plan'}`,
+        undefined, // failureReason
+        payload // full payload as metadata
+      );
+
+      this.logger.log(`Created payment transaction for PayPal capture: ${capture.id} for org ${organization.id}, amount: $${amount.value} (${amount.currency_code})`);
+
+      this.logger.log(`Successfully processed PayPal capture for: ${capture.id}`);
+
+    } catch (error) {
+      this.logger.error(`Failed to process PayPal capture completion: ${capture.id}`, error);
+      throw error;
+    }
 
     // TODO: Handle one-time payments (like lifetime deals)
     // TODO: Create appropriate billing history entries
@@ -722,9 +908,57 @@ export class PaymentWebhooksController {
     const subscription = payload.resource;
     this.logger.log(`Processing subscription payment failed: ${subscription.id}`);
 
+    try {
+      // Find organization by PayPal subscription ID
+      const organization = await this.subscriptionService.getOrganizationByPayPalSubscriptionId(subscription.id);
+
+      if (!organization) {
+        this.logger.error(`Organization not found for PayPal subscription payment failure: ${subscription.id}`);
+        return;
+      }
+
+      // Get subscription information for the transaction
+      const currentSubscription = await this.subscriptionService.getSubscription(organization.id);
+
+      // Extract amount if available
+      let amountInCents = 0;
+      let currency = 'USD';
+      let description = `PayPal subscription payment failed for ${currentSubscription ? currentSubscription.subscriptionTier : 'Plan'}`;
+
+      if (subscription.billing_info?.last_payment?.amount) {
+        const amount = subscription.billing_info.last_payment.amount;
+        amountInCents = Math.round(parseFloat(amount.value) * 100);
+        currency = amount.currency_code;
+        description = `PayPal subscription payment failed for ${currentSubscription ? currentSubscription.subscriptionTier : 'Plan'} - $${amount.value} (${amount.currency_code})`;
+      }
+
+      // Record failed payment in PaymentTransaction table
+      await this.subscriptionService.createPaymentTransaction(
+        organization.id,
+        currentSubscription?.id || null,
+        'PAYPAL',
+        subscription.id,
+        amountInCents,
+        currency,
+        'FAILED',
+        'SUBSCRIPTION_PAYMENT',
+        undefined, // paymentMethod
+        description,
+        `PayPal subscription payment failed - see payload for details`, // failureReason
+        payload // full payload as metadata
+      );
+
+      this.logger.warn(`Recorded failed subscription payment transaction for PayPal subscription: ${subscription.id} for org ${organization.id} - user should be notified`);
+
+      this.logger.log(`Successfully processed PayPal subscription payment failure: ${subscription.id} for organization ${organization.id}`);
+
+    } catch (error) {
+      this.logger.error(`Failed to process PayPal subscription payment failure: ${subscription.id}`, error);
+      throw error;
+    }
+
     // Handle failed payment - set subscription to past due status
     // TODO: Find organization by subscription ID and update status to PAST_DUE
-    // TODO: Record failed payment in PaymentTransaction table
     // TODO: Update subscription retry dates
     // TODO: Send payment failure notification to user
     // TODO: Create billing alert/dunning management
