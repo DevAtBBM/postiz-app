@@ -7,7 +7,7 @@ export class QuotaGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
-    const organization = request.organization;
+    const organization = request.org;
 
     if (!organization) {
       throw new BadRequestException('No organization found in request');

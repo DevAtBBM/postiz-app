@@ -14,38 +14,57 @@ import { GetUserFromRequest } from '@gitroom/nestjs-libraries/user/user.from.req
 export class CopilotController {
   constructor(private _subscriptionService: SubscriptionService) {}
   @Post('/chat')
-  @UseGuards(QuotaGuard)
+  //@UseGuards(QuotaGuard)
   async chat(
     @Req() req: Request,
     @Res() res: Response,
     @GetOrgFromRequest() org: Organization
   ): Promise<void> {
+    Logger.log(`Copilot chat request received from org: ${org.id}, request body keys: ${Object.keys(req.body || {})}`);
     if (
       process.env.OPENAI_API_KEY === undefined ||
       process.env.OPENAI_API_KEY === ''
     ) {
       Logger.warn('OpenAI API key not set, chat functionality will not work');
+      Logger.error('OPENAI_API_KEY environment variable is missing or empty');
       throw new Error('OpenAI API key not configured');
     }
+    Logger.log('OpenAI API key is configured, proceeding with request');
 
-    // Track AI image usage through subscription service
-    await this._subscriptionService.useFeature(org, 'ai_images', async () => {
-      const copilotRuntimeHandler = copilotRuntimeNestEndpoint({
-        endpoint: '/copilot/chat',
-        runtime: new CopilotRuntime(),
-        serviceAdapter: new OpenAIAdapter({
-          model:
-            // @ts-ignore
-            req?.body?.variables?.data?.metadata?.requestType ===
-            'TextareaCompletion'
-              ? 'gpt-4o-mini'
-              : 'gpt-4.1',
-        }),
-      });
+    // TEMPORARILY DISABLED: Track AI image usage through subscription service
+    // await this._subscriptionService.useFeature(org, 'ai_images', async () => {
+    //   const copilotRuntimeHandler = copilotRuntimeNestEndpoint({
+    //     endpoint: '/copilot/chat',
+    //     runtime: new CopilotRuntime(),
+    //     serviceAdapter: new OpenAIAdapter({
+    //       model:
+    //         // @ts-ignore
+    //         req?.body?.variables?.data?.metadata?.requestType ===
+    //         'TextareaCompletion'
+    //           ? 'gpt-4o-mini'
+    //           : 'gpt-4.1',
+    //     }),
+    //   });
 
-      // @ts-ignore
-      return copilotRuntimeHandler(req, res);
+    //   // @ts-ignore
+    //   return copilotRuntimeHandler(req, res);
+    // });
+
+    const copilotRuntimeHandler = copilotRuntimeNestEndpoint({
+      endpoint: '/copilot/chat',
+      runtime: new CopilotRuntime(),
+      serviceAdapter: new OpenAIAdapter({
+        model:
+          // @ts-ignore
+          req?.body?.variables?.data?.metadata?.requestType ===
+          'TextareaCompletion'
+            ? 'gpt-4o-mini'
+            : 'gpt-4.1',
+      }),
     });
+
+    // @ts-ignore
+    return copilotRuntimeHandler(req, res);
   }
 
   @Get('/credits')

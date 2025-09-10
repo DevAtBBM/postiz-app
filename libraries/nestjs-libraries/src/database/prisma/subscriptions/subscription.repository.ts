@@ -14,8 +14,10 @@ import {
   PaymentType,
   UsageType,
   SubscriptionChangeReason,
+  PaymentStatus,
 } from '@prisma/client';
 import dayjs from 'dayjs';
+import { pricing } from '@gitroom/nestjs-libraries/database/prisma/subscriptions/pricing';
 
 
 @Injectable()
@@ -160,6 +162,23 @@ export class SubscriptionRepository {
       return;
     }
 
+    // Get pricing data for the billing tier to populate limits and other fields
+    const planPricing = pricing[billing as keyof typeof pricing] || pricing.PRO;
+
+    // Calculate current period dates - start from today, end at period boundary
+    const now = dayjs();
+
+    // Start from the exact day the subscription is created
+    const currentPeriodStart = now.toDate();
+
+    // End of the period based on subscription type
+    let currentPeriodEnd: Date;
+    if (period === 'YEARLY') {
+      currentPeriodEnd = now.endOf('year').toDate();
+    } else {
+      currentPeriodEnd = now.endOf('month').toDate();
+    }
+
     await this._subscription.model.subscription.upsert({
       where: {
         organizationId: findOrg.id,
@@ -179,6 +198,15 @@ export class SubscriptionRepository {
         isLifetime: !!code,
         cancelAt: cancelAt ? new Date(cancelAt * 1000) : null,
         deletedAt: null,
+        // Populate subscription limits from pricing data (only fields that exist in DB)
+        postsPerMonth: planPricing.maxPostsPerMonth,
+        aiImagesPerMonth: planPricing.maxAiImagesPerMonth,
+        aiVideosPerMonth: planPricing.maxAiVideosPerMonth,
+        maxChannels: planPricing.maxChannels,
+        maxTeamMembers: planPricing.maxTeamMembers,
+        // Period dates
+        currentPeriodStart,
+        currentPeriodEnd,
       },
       create: {
         organizationId: findOrg.id,
@@ -189,6 +217,15 @@ export class SubscriptionRepository {
         cancelAt: cancelAt ? new Date(cancelAt * 1000) : null,
         identifier,
         deletedAt: null,
+        // Populate subscription limits from pricing data (only fields that exist in DB)
+        postsPerMonth: planPricing.maxPostsPerMonth,
+        aiImagesPerMonth: planPricing.maxAiImagesPerMonth,
+        aiVideosPerMonth: planPricing.maxAiVideosPerMonth,
+        maxChannels: planPricing.maxChannels,
+        maxTeamMembers: planPricing.maxTeamMembers,
+        // Period dates
+        currentPeriodStart,
+        currentPeriodEnd,
       },
     });
 
