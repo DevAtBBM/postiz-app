@@ -21,8 +21,6 @@ RUN touch .env.local
 
 RUN pnpm install
 
-RUN NODE_OPTIONS="--max-old-space-size=4096" pnpm run build
-
 # Fix Prisma client generation for Docker builds with fallback
 USER root
 RUN echo "Attempting Prisma generation..." && \
@@ -31,5 +29,7 @@ RUN echo "Attempting Prisma generation..." && \
      echo "Prisma generation failed, but continuing build... Database operations will regenerate at runtime if needed")
 
 USER www
+
+RUN NODE_OPTIONS="--max-old-space-size=4096" pnpm run build
 
 CMD ["sh", "-c", "nginx && pnpm run pm2"]
