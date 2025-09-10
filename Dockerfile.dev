@@ -22,13 +22,12 @@ RUN touch .env.local
 RUN pnpm install
 
 # Fix Prisma client generation for Docker builds with fallback
-USER root
+
 RUN echo "Attempting Prisma generation..." && \
     (npx prisma generate --schema ./libraries/nestjs-libraries/src/database/prisma/schema.prisma || \
      pnpm dlx prisma generate --schema ./libraries/nestjs-libraries/src/database/prisma/schema.prisma || \
      echo "Prisma generation failed, but continuing build... Database operations will regenerate at runtime if needed")
 
-USER www
 
 RUN NODE_OPTIONS="--max-old-space-size=4096" pnpm run build
 
