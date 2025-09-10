@@ -29,6 +29,6 @@ RUN echo "Attempting Prisma generation..." && \
      echo "Prisma generation failed, but continuing build... Database operations will regenerate at runtime if needed")
 
 
-RUN NODE_OPTIONS="--max-old-space-size=4096" pnpm run build
+RUN NODE_OPTIONS="--max-old-space-size=4096" pnpm run build --verbose
 
 CMD ["sh", "-c", "nginx && pnpm run pm2"]
