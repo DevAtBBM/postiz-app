@@ -5,7 +5,7 @@ import { Button } from '@gitroom/react/form/button';
 import { useRouter } from 'next/navigation';
 import { useT } from '@gitroom/react/translation/get.transation.service.client';
 
-export const CancelComponent: FC = () => {
+const CancelComponent: FC = () => {
   const router = useRouter();
   const t = useT();
 

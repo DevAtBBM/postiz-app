@@ -115,14 +115,7 @@ export const QuotaNotifications: FC = () => {
       .replace('{current}', warning.current.toString())
       .replace('{limit}', warning.limit.toString());
 
-    toaster.show(message, {
-      type: warning.severity === 'danger' ? 'error' : 'warning',
-      duration: warning.severity === 'danger' ? 0 : 10000,
-      action: warning.severity === 'danger' ? {
-        label: t('upgrade_now', 'Upgrade Now'),
-        onClick: () => window.location.href = '/billing'
-      } : undefined
-    });
+    toaster.show(message, warning.severity === 'warning' ? 'warning' : undefined);
   };
 
   const dismissWarning = (warningId: string) => {

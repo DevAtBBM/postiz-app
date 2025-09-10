@@ -36,3 +36,6 @@ export class CreateOrgUserDto {
   @MaxLength(128)
   company: string;
 }
+
+// Re-export Provider for convenience
+export { Provider };

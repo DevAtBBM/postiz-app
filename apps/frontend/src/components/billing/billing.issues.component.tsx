@@ -24,7 +24,7 @@ export const BillingIssuesComponent: FC = () => {
     e.preventDefault();
 
     if (!formData.description.trim()) {
-      toast.show('Please provide a description of your billing issue', 'error');
+      toast.show('Please provide a description of your billing issue');
       return;
     }
 
@@ -57,7 +57,7 @@ export const BillingIssuesComponent: FC = () => {
       }
     } catch (error) {
       console.error('Error submitting billing issue:', error);
-      toast.show('Failed to submit billing issue. Please try again.', 'error');
+      toast.show('Failed to submit billing issue. Please try again.');
     } finally {
       setSubmitting(false);
     }
@@ -148,7 +148,7 @@ export const BillingIssuesComponent: FC = () => {
               </div>
 
               <div className="flex justify-end gap-4">
-                <Button onClick={() => router.push('/billing')} variant="secondary">
+                <Button onClick={() => router.push('/billing')}>
                   Cancel
                 </Button>
                 <Button type="submit" disabled={submitting} loading={submitting}>

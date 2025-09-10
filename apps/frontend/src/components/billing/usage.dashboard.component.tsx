@@ -125,7 +125,7 @@ export const UsageDashboardComponent: FC = () => {
           }
         });
       } catch (fallbackError) {
-        toaster.show('Failed to load usage data', { type: 'error' });
+        toaster.show('Failed to load usage data');
       }
     } finally {
       setLoading(false);

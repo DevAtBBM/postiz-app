@@ -86,7 +86,7 @@ export const AdminBillingDashboard: FC = () => {
         setPayments(paymentsData);
       }
     } catch (error) {
-      toaster.show('Failed to load billing dashboard data', { type: 'error' });
+      toaster.show('Failed to load billing dashboard data');
     } finally {
       setLoading(false);
     }
@@ -101,10 +101,10 @@ export const AdminBillingDashboard: FC = () => {
       await fetch(`/billing/admin/subscriptions/${subscriptionId}/cancel`, {
         method: 'POST'
       });
-      toaster.show('Subscription cancelled successfully', { type: 'success' });
+      toaster.show('Subscription cancelled successfully');
       loadDashboardData(); // Refresh data
     } catch (error) {
-      toaster.show('Failed to cancel subscription', { type: 'error' });
+      toaster.show('Failed to cancel subscription');
     }
   };
 
@@ -217,6 +217,7 @@ export const AdminBillingDashboard: FC = () => {
           subscriptions={subscriptions}
           onCancelSubscription={handleCancelSubscription}
           onExport={() => exportData('subscriptions')}
+          t={t}
         />
       )}
 
@@ -224,6 +225,7 @@ export const AdminBillingDashboard: FC = () => {
         <PaymentManagementTab
           payments={payments}
           onExport={() => exportData('payments')}
+          t={t}
         />
       )}
 
@@ -274,12 +276,14 @@ interface SubscriptionManagementTabProps {
   subscriptions: SubscriptionRow[];
   onCancelSubscription: (id: string) => void;
   onExport: () => void;
+  t: (key: string, fallback: string) => string;
 }
 
 const SubscriptionManagementTab: FC<SubscriptionManagementTabProps> = ({
   subscriptions,
   onCancelSubscription,
-  onExport
+  onExport,
+  t
 }) => {
   return (
     <div className="bg-sixth border border-customColor6 rounded-[8px] p-6">
@@ -359,11 +363,13 @@ const SubscriptionManagementTab: FC<SubscriptionManagementTabProps> = ({
 interface PaymentManagementTabProps {
   payments: PaymentRow[];
   onExport: () => void;
+  t: (key: string, fallback: string) => string;
 }
 
 const PaymentManagementTab: FC<PaymentManagementTabProps> = ({
   payments,
-  onExport
+  onExport,
+  t
 }) => {
   return (
     <div className="bg-sixth border border-customColor6 rounded-[8px] p-6">

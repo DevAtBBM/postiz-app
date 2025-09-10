@@ -8,7 +8,7 @@ import { TrackEnum } from '@gitroom/nestjs-libraries/user/track.enum';
 import { useTrack } from '@gitroom/react/helpers/use.track';
 import { useT } from '@gitroom/react/translation/get.transation.service.client';
 
-export const SuccessComponent: FC = () => {
+const SuccessComponent: FC = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { mutate } = useSWRConfig();
@@ -23,7 +23,7 @@ export const SuccessComponent: FC = () => {
   useEffect(() => {
     if (subscriptionId) {
       // Track successful subscription
-      track(TrackEnum.SubscriptionCreated, {
+      track(TrackEnum.Purchase, {
         provider: 'paypal',
         subscriptionId: subscriptionId
       });
