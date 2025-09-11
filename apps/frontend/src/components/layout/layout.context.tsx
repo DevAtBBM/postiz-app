@@ -12,14 +12,29 @@ export default function LayoutContext(params: { children: ReactNode }) {
   }
   return <></>;
 }
-export function setCookie(cname: string, cvalue: string, exdays: number) {
+export function setCookie(cname: string, cvalue: string, exdays: number, domain?: string, isSecured?: boolean) {
   if (typeof document === 'undefined') {
     return;
   }
   const d = new Date();
   d.setTime(d.getTime() + exdays * 24 * 60 * 60 * 1000);
-  const expires = 'expires=' + d.toUTCString();
-  document.cookie = cname + '=' + cvalue + ';' + expires + ';path=/';
+  let cookieString = cname + '=' + cvalue + ';';
+
+  if (domain) {
+    cookieString += 'domain=' + domain + ';';
+  }
+
+  cookieString += 'path=/;';
+
+  if (isSecured !== undefined && !isSecured) {
+    // For non-secured environments, we don't add security flags
+  } else if (isSecured) {
+    cookieString += 'secure=true;sameSite=none;httpOnly=true;';
+  }
+
+  cookieString += 'expires=' + d.toUTCString();
+
+  document.cookie = cookieString;
 }
 function LayoutContextInner(params: { children: ReactNode }) {
   const returnUrl = useReturnUrl();
@@ -42,7 +57,7 @@ function LayoutContextInner(params: { children: ReactNode }) {
       const logout =
         response?.headers?.get('logout') || response?.headers?.get('Logout');
       if (headerAuth) {
-        setCookie('auth', headerAuth, 365);
+        //setCookie('auth', headerAuth, 365);
       }
       if (showOrg) {
         setCookie('showorg', showOrg, 365);
@@ -50,11 +65,30 @@ function LayoutContextInner(params: { children: ReactNode }) {
       if (impersonate) {
         setCookie('impersonate', impersonate, 365);
       }
+      console.log('Server logout value:', logout);
       if (logout && !isSecured) {
-        setCookie('auth', '', -10);
-        setCookie('showorg', '', -10);
-        setCookie('impersonate', '', -10);
-        window.location.href = '/';
+        // Extract domain for cookie clearing - use current hostname
+        const hostname = window.location.hostname;
+        let domain = hostname;
+
+        // For production domains like "stageapp.postnify.com", we want ".postnify.com"
+        // For local localhost, we want "localhost"
+        if (hostname.includes('.')) {
+          // For .com, .net, etc. domains, get the domain part
+          const parts = hostname.split('.');
+          if (parts.length > 1) {
+            domain = '.' + parts.slice(-2).join('.');
+          }
+        }
+
+        setCookie('auth', '', -10, domain, isSecured);
+        setCookie('auth', '', -10, "stageapp.postnify.com", isSecured);
+        setCookie('showorg', '', -10, domain, isSecured);
+        setCookie('impersonate', '', -10, domain, isSecured);
+        console.log('Server-directed logout for domain:', domain);
+        // Using document.cookie directly
+        document.cookie = "auth=; expires=Thu, 01 Jan 1970 00:00:00 UTC; domain=stageapp.postnify.com; path=/; secure=" + (isSecured ? "true" : "false");
+        window.location.href = '/auth/login';
         return true;
       }
       const reloadOrOnboarding =
@@ -79,11 +113,26 @@ function LayoutContextInner(params: { children: ReactNode }) {
       }
       if (response.status === 401) {
         if (!isSecured) {
-          setCookie('auth', '', -10);
-          setCookie('showorg', '', -10);
-          setCookie('impersonate', '', -10);
+          // Extract domain for cookie clearing - use current hostname
+          const hostname = window.location.hostname;
+          let domain = hostname;
+
+          // For production domains like "stageapp.postnify.com", we want ".postnify.com"
+          // For local localhost, we want "localhost"
+          if (hostname.includes('.')) {
+            // For .com, .net, etc. domains, get the domain part
+            const parts = hostname.split('.');
+            if (parts.length > 1) {
+              domain = '.' + parts.slice(-2).join('.');
+            }
+          }
+
+          setCookie('auth', '', -10, domain, isSecured);
+          setCookie('showorg', '', -10, domain, isSecured);
+          setCookie('impersonate', '', -10, domain, isSecured);
+          console.log('401 error logout for domain:', domain);
         }
-        window.location.href = '/';
+        window.location.href = '/auth/login';
       }
       if (response.status === 406) {
         if (

@@ -28,6 +28,7 @@ import { UserAgent } from '@gitroom/nestjs-libraries/user/user.agent';
 import { TrackEnum } from '@gitroom/nestjs-libraries/user/track.enum';
 import { TrackService } from '@gitroom/nestjs-libraries/track/track.service';
 import { makeId } from '@gitroom/nestjs-libraries/services/make.is';
+import { removeAuth } from '@gitroom/backend/services/auth/auth.middleware';
 import { AuthorizationActions, Sections } from '@gitroom/backend/services/auth/permissions/permission.exception.class';
 
 @ApiTags('User')
@@ -199,45 +200,71 @@ export class UsersController {
 
   @Post('/logout')
   logout(@Res({ passthrough: true }) response: Response) {
-    response.cookie('auth', '', {
-      domain: getCookieUrlFromDomain(process.env.FRONTEND_URL!),
-      ...(!process.env.NOT_SECURED
-        ? {
-            secure: true,
-            httpOnly: true,
-            sameSite: 'none',
-          }
-        : {}),
-      maxAge: -1,
-      expires: new Date(0),
+    // Use the same domain as when cookies were originally set
+    const frontendUrl = new URL(process.env.FRONTEND_URL!);
+    const cookieDomain = frontendUrl.hostname;
+    const protocol = frontendUrl.protocol;
+
+    // For HTTPS sites, even if NOT_SECURED is true, we need secure flags
+    const shouldUseSecure = !process.env.NOT_SECURED || protocol === 'https:';
+
+    // Clear cookies on the subdomain (primary domain)
+    const secureFlags = shouldUseSecure ? {
+      secure: true,
+      httpOnly: true,
+      sameSite: 'none' as const,
+    } : {};
+
+    [
+      { name: 'auth', domain: cookieDomain },
+      { name: 'showorg', domain: cookieDomain },
+      { name: 'impersonate', domain: cookieDomain }
+    ].forEach(cookie => {
+      response.cookie(cookie.name, '', {
+        domain: cookie.domain,
+        ...secureFlags,
+        maxAge: -1,
+        expires: new Date(0),
+      });
     });
 
-    response.cookie('showorg', '', {
-      domain: getCookieUrlFromDomain(process.env.FRONTEND_URL!),
-      ...(!process.env.NOT_SECURED
-        ? {
-            secure: true,
-            httpOnly: true,
-            sameSite: 'none',
-          }
-        : {}),
-      maxAge: -1,
-      expires: new Date(0),
-    });
+    // Also clear cookies on the root domain to handle historical inconsistencies
+    // Extract root domain from hostname (e.g., stageapp.postnify.com -> .postnify.com)
+    if (cookieDomain.includes('.')) {
+      const domainParts = cookieDomain.split('.');
+      if (domainParts.length > 1) {
+        const rootDomain = '.' + domainParts.slice(-2).join('.');
 
-    response.cookie('impersonate', '', {
-      domain: getCookieUrlFromDomain(process.env.FRONTEND_URL!),
-      ...(!process.env.NOT_SECURED
-        ? {
-            secure: true,
-            httpOnly: true,
-            sameSite: 'none',
-          }
-        : {}),
-      maxAge: -1,
-      expires: new Date(0),
-    });
+        [
+          { name: 'auth', domain: rootDomain },
+          { name: 'showorg', domain: rootDomain },
+          { name: 'impersonate', domain: rootDomain }
+        ].forEach(cookie => {
+          response.cookie(cookie.name, '', {
+            domain: cookie.domain,
+            ...secureFlags,
+            maxAge: -1,
+            expires: new Date(0),
+          });
+        });
+      }
+    }
 
+    [
+      { name: 'auth', domain: "stageapp.postnify.com" },
+      { name: 'showorg', domain: "stageapp.postnify.com" },
+      { name: 'impersonate', domain: "stageapp.postnify.com" }
+    ].forEach(cookie => {
+      response.cookie(cookie.name, '', {
+        domain: cookie.domain,
+        ...secureFlags,
+        maxAge: -1,
+        expires: new Date(0),
+      });
+    });
+    removeAuth(response);
+    // Cookies cleared successfully
+    response.header('logout', 'true');
     response.status(200).send();
   }
 
