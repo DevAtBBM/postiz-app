@@ -59,15 +59,33 @@ export class AuthController {
         getOrgFromCookie
       );
 
+      // Check for referral header to determine redirect
+      const isFromReferral = req.headers['x-referral'] === 'paid';
+      const plan = req.headers['x-plan'] as string;
+
       const activationRequired =
         body.provider === 'LOCAL' && this._emailService.hasProvider();
 
       if (activationRequired) {
+        // For referral users, store referral info in cookie for activation
+        if (isFromReferral && plan) {
+          response.cookie('referral_plan', plan, {
+            domain: getCookieUrlFromDomain(process.env.FRONTEND_URL!),
+            ...(!process.env.NOT_SECURED
+              ? {
+                  secure: true,
+                  httpOnly: true,
+                  sameSite: 'none',
+                }
+              : {}),
+            expires: new Date(Date.now() + 1000 * 60 * 60 * 24), // 24 hours
+          });
+        }
         response.header('activate', 'true');
         response.status(200).json({ activate: true });
           return;
         }
-  
+
         // Handle activation required (email sent)
         if (activationRequired) {
           response.status(200).json({
@@ -76,7 +94,13 @@ export class AuthController {
           });
           return;
         }
-  
+
+      if (isFromReferral && plan) {
+        response.header('billing', plan);
+      } else {
+        response.header('onboarding', 'true');
+      }
+
         response.cookie('auth', jwt, {
           domain: getCookieUrlFromDomain(process.env.FRONTEND_URL!),
           ...(!process.env.NOT_SECURED
@@ -111,7 +135,12 @@ export class AuthController {
         }
       }
 
-      response.header('onboarding', 'true');
+      if (isFromReferral && plan) {
+        response.header('billing', plan);
+      } else {
+        response.header('onboarding', 'true');
+      }
+
       response.status(200).json({
         register: true,
       });
@@ -175,7 +204,16 @@ export class AuthController {
         }
       }
 
-      response.header('reload', 'true');
+      // Check for referral header to determine redirect
+      const isFromReferral = req.headers['x-referral'] === 'paid';
+      const plan = req.headers['x-plan'] as string;
+
+      if (isFromReferral && plan) {
+        response.header('billing', plan);
+      } else {
+        response.header('reload', 'true');
+      }
+
       response.status(200).json({
         login: true,
       });
@@ -213,6 +251,7 @@ export class AuthController {
 
   @Post('/activate')
   async activate(
+    @Req() req: Request,
     @Body('code') code: string,
     @Res({ passthrough: false }) response: Response
   ) {
@@ -237,7 +276,25 @@ export class AuthController {
       response.header('auth', activate);
     }
 
-    response.header('onboarding', 'true');
+    // Check for referral cookie set during registration
+    const referralPlan = req.cookies['referral_plan'];
+    if (referralPlan) {
+      response.header('billing', referralPlan);
+      // Clear the cookie after use
+      response.cookie('referral_plan', '', {
+        domain: getCookieUrlFromDomain(process.env.FRONTEND_URL!),
+        ...(!process.env.NOT_SECURED
+          ? {
+              secure: true,
+              httpOnly: true,
+              sameSite: 'none',
+            }
+          : {}),
+        expires: new Date(0),
+      });
+    } else {
+      response.header('onboarding', 'true');
+    }
 
     return response.status(200).json({ can: true });
   }
@@ -299,7 +356,19 @@ export class AuthController {
                 response.header('auth', registerResult.jwt);
               }
 
-              response.header('reload', 'true');
+              // Check for referral in query params for OAuth
+              const isFromReferral = state && state.includes('referral=paid');
+              let plan = '';
+              if (isFromReferral) {
+                const urlParams = new URLSearchParams(state);
+                plan = urlParams.get('plan') || '';
+              }
+
+              if (isFromReferral && plan) {
+                response.header('billing', plan);
+              } else {
+                response.header('reload', 'true');
+              }
               response.redirect(`${process.env.FRONTEND_URL}/`);
               return;
             } catch (registerError: any) {
@@ -332,7 +401,19 @@ export class AuthController {
                   response.header('auth', loginResult.jwt);
                 }
 
-                response.header('reload', 'true');
+                // Check for referral in query params for OAuth
+                const isFromReferral = state && state.includes('referral=paid');
+                let plan = '';
+                if (isFromReferral) {
+                  const urlParams = new URLSearchParams(state);
+                  plan = urlParams.get('plan') || '';
+                }
+ 
+                if (isFromReferral && plan) {
+                  response.header('billing', plan);
+                } else {
+                  response.header('reload', 'true');
+                }
                 response.redirect(`${process.env.FRONTEND_URL}/`);
                 return;
               } catch (loginError) {
@@ -371,7 +452,19 @@ export class AuthController {
         response.header('auth', jwt);
       }
 
-      response.header('reload', 'true');
+      // Check for referral in state for OAuth (existing user)
+      const isFromReferral = state && state.includes('referral=paid');
+      let plan = '';
+      if (isFromReferral) {
+        const urlParams = new URLSearchParams(state);
+        plan = urlParams.get('plan') || '';
+      }
+
+      if (isFromReferral && plan) {
+        response.header('billing', plan);
+      } else {
+        response.header('reload', 'true');
+      }
       response.redirect(`${process.env.FRONTEND_URL}/`);
     } catch (e: any) {
       console.error('OAuth callback error:', e);

@@ -91,16 +91,26 @@ function LayoutContextInner(params: { children: ReactNode }) {
         window.location.href = '/auth/login';
         return true;
       }
+      // Check for billing first (highest priority for referral users)
+      if (response?.headers?.get('billing')) {
+        const plan = response.headers.get('billing');
+        window.location.href = `/billing${plan ? `?plan=${plan}` : ''}`;
+        return true;
+      }
+
+      // Check for returnUrl only for reload/onboarding (not billing)
       const reloadOrOnboarding =
         response?.headers?.get('reload') ||
         response?.headers?.get('onboarding');
       if (reloadOrOnboarding) {
         const getAndClear = returnUrl.getAndClear();
-        if (getAndClear) {
+        if (getAndClear && getAndClear.startsWith(window.location.origin)) {
+          // Only redirect to same origin URLs for security
           window.location.href = getAndClear;
           return true;
         }
       }
+
       if (response?.headers?.get('onboarding')) {
         window.location.href = isGeneral
           ? '/launches?onboarding=true'

@@ -28,6 +28,11 @@ export function Login() {
   const { isGeneral, neynarClientId, billingEnabled } = useVariables();
   const searchParams = useSearchParams();
 
+  // Capture referral and plan params
+  const referral = searchParams.get('referral');
+  const plan = searchParams.get('plan');
+  const isFromReferral = referral === 'paid' && plan;
+
   // Force disable generic OAuth to show Google login
   const genericOauth = false;
   const resolver = useMemo(() => {
@@ -118,8 +123,15 @@ export function Login() {
   };
   const onSubmit: SubmitHandler<Inputs> = async (data) => {
     setLoading(true);
+    const headers: Record<string, string> = {};
+    if (isFromReferral) {
+      headers['x-referral'] = 'paid';
+      headers['x-plan'] = plan!;
+    }
+
     const login = await fetchData('/auth/login', {
       method: 'POST',
+      headers,
       body: JSON.stringify({
         ...data,
         provider: 'LOCAL',

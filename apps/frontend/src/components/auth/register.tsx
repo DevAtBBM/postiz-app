@@ -95,6 +95,13 @@ export function RegisterAfter({
   const router = useRouter();
   const fireEvents = useFireEvents();
   const track = useTrack();
+  const searchParams = useSearchParams();
+
+  // Capture referral and plan params
+  const referral = searchParams.get('referral');
+  const plan = searchParams.get('plan');
+  const isFromReferral = referral === 'paid' && plan;
+
   const isAfterProvider = useMemo(() => {
     return !!token && !!provider;
   }, [token, provider]);
@@ -111,8 +118,15 @@ export function RegisterAfter({
   const fetchData = useFetch();
   const onSubmit: SubmitHandler<Inputs> = async (data) => {
     setLoading(true);
+    const headers: Record<string, string> = {};
+    if (isFromReferral) {
+      headers['x-referral'] = 'paid';
+      headers['x-plan'] = plan!;
+    }
+
     await fetchData('/auth/register', {
       method: 'POST',
+      headers,
       body: JSON.stringify({
         ...data,
       }),
@@ -208,14 +222,14 @@ export function RegisterAfter({
             'By registering you agree to our'
           )}&nbsp;
           <a
-            href={`https://postiz.com/terms`}
+            href={`https://postnify.com/terms-conditions`}
             className="underline hover:no-underline hover:text-primary"
           >
             {t('terms_of_service', 'Terms of Service')}
           </a>&nbsp;
           {t('and', 'and')}&nbsp;
           <a
-            href={`https://postiz.com/privacy`}
+            href={`https://postnify.com/privacy-policy`}
             className="underline hover:no-underline hover:text-primary"
           >
             {t('privacy_policy', 'Privacy Policy')}

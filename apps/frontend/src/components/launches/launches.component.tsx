@@ -475,7 +475,8 @@ export const LaunchesComponent = () => {
         '*'
       );
     }
-    if (window.opener) {
+    // Only close window if it's a popup AND not an onboarding redirect
+    if (window.opener && !search.get('onboarding')) {
       window.close();
     }
   }, []);
