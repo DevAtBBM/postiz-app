@@ -1,6 +1,6 @@
 'use client';
 
-import { useModals } from '@mantine/modals';
+import { useModals } from '@gitroom/frontend/components/layout/new-modal';
 import React, { FC, useCallback, useEffect, useMemo } from 'react';
 import { useFetch } from '@gitroom/helpers/utils/custom.fetch';
 import { Input } from '@gitroom/react/form/input';
@@ -78,17 +78,9 @@ export const useAddProvider = (update?: () => void) => {
   return useCallback(async () => {
     const data = await (await fetch('/integrations')).json();
     modal.openModal({
-      title: '',
-      withCloseButton: false,
-      classNames: {
-        modal: 'text-textColor',
-      },
-      size: 'auto',
-      children: (
-        <ModalWrapperComponent title="Add Channel">
-          <AddProviderComponent update={update} {...data} />
-        </ModalWrapperComponent>
-      ),
+      title: 'Add Channel',
+      withCloseButton: true,
+      children: <AddProviderComponent update={update} {...data} />,
     });
   }, []);
 };
@@ -427,20 +419,18 @@ export const AddProviderComponent: FC<{
             await fetch(`/integrations/social/${identifier}`)
           ).json();
           modal.openModal({
-            title: '',
+            title: 'Web3 provider',
             withCloseButton: false,
             classNames: {
               modal: 'bg-transparent text-textColor',
             },
             children: (
-              <ModalWrapperComponent title="Web3 provider">
-                <Web3Providers
-                  onComplete={(code, newState) => {
-                    window.location.href = `/integrations/social/${identifier}?code=${code}&state=${newState}`;
-                  }}
-                  nonce={url}
-                />
-              </ModalWrapperComponent>
+              <Web3Providers
+                onComplete={(code, newState) => {
+                  window.location.href = `/integrations/social/${identifier}?code=${code}&state=${newState}`;
+                }}
+                nonce={url}
+              />
             ),
           });
           return;
@@ -466,35 +456,29 @@ export const AddProviderComponent: FC<{
         if (isExternal) {
           modal.closeAll();
           modal.openModal({
-            title: '',
+            title: 'URL',
             withCloseButton: false,
             classNames: {
               modal: 'bg-transparent text-textColor',
             },
-            children: (
-              <ModalWrapperComponent title="URL">
-                <UrlModal gotoUrl={gotoIntegration} />
-              </ModalWrapperComponent>
-            ),
+            children: <UrlModal gotoUrl={gotoIntegration} />,
           });
           return;
         }
         if (customFields) {
           modal.closeAll();
           modal.openModal({
-            title: '',
+            title: 'Add Provider',
             withCloseButton: false,
             classNames: {
               modal: 'bg-transparent text-textColor',
             },
             children: (
-              <ModalWrapperComponent title="Add Provider">
-                <CustomVariables
-                  identifier={identifier}
-                  gotoUrl={(url: string) => router.push(url)}
-                  variables={customFields}
-                />
-              </ModalWrapperComponent>
+              <CustomVariables
+                identifier={identifier}
+                gotoUrl={(url: string) => router.push(url)}
+                variables={customFields}
+              />
             ),
           });
           return;
@@ -503,9 +487,7 @@ export const AddProviderComponent: FC<{
       },
     [hasReachedChannelLimit, modal]
   );
-  const close = useCallback(() => {
-    modal.closeAll();
-  }, []);
+
   const showApiButton = useCallback(
     (identifier: string, name: string) => async () => {
       // Check if user has reached channel limit

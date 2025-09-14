@@ -74,8 +74,6 @@ module.exports = {
         modalCustom: 'var(--color-modalCustom)',
         
 
-
-
         newBgColor: 'var(--new-bgColor)',
         newBgColorInner: 'var(--new-bgColorInner)',
         newBgLineColor: 'var(--new-bgLineColor)',
@@ -97,6 +95,7 @@ module.exports = {
         menuDots: 'var(--new-menu-dots)',
         menuDotsHover: 'var(--new-menu-hover)',
         bigStrip: 'var(--new-big-strips)',
+        popup: 'var(--popup-color)',
       },
       gridTemplateColumns: {
         13: 'repeat(13, minmax(0, 1fr));',
@@ -112,6 +111,7 @@ module.exports = {
       animation: {
         fade: 'fadeOut 0.5s ease-in-out',
         normalFadeIn: 'normalFadeIn 0.5s ease-in-out',
+        fadeIn: 'normalFadeIn 0.2s ease-in-out forwards',
         normalFadeOut: 'normalFadeOut 0.5s linear 5s forwards',
         overflow: 'overFlow 0.5s ease-in-out forwards',
         overflowReverse: 'overFlowReverse 0.5s ease-in-out forwards',
@@ -123,7 +123,7 @@ module.exports = {
         yellow: '0 0 60px 20px #6b6237',
         yellowToast: '0px 0px 50px rgba(252, 186, 3, 0.3)',
         greenToast: '0px 0px 50px rgba(60, 124, 90, 0.3)',
-        menu: 'var(--menu-shadow)'
+        menu: 'var(--menu-shadow)',
       },
       // that is actual animation
       keyframes: (theme) => ({
