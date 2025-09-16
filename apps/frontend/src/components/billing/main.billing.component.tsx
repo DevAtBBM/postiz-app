@@ -427,7 +427,7 @@ export const MainBillingComponent: FC<{
         <div className="flex-1 text-[20px]">{t('plans', 'Plans')}</div>
         <div className="flex items-center gap-[16px]">
           <div>{t('monthly', 'MONTHLY')}</div>
-          <div>
+          <div className="sliderDiv">
             <Slider value={monthlyOrYearly} onChange={setMonthlyOrYearly} />
           </div>
           <div>{t('yearly', 'YEARLY')}</div>
@@ -435,8 +435,8 @@ export const MainBillingComponent: FC<{
       </div>
 
       {/* Yearly Savings Message */}
-      <div className="flex justify-center mt-[8px]">
-        <div className="px-3 py-1 bg-green-500/10 border border-green-500/20 rounded-full text-sm text-green-600 font-medium">
+      <div className="flex justify-center mt-[1px]">
+        <div className="px-6 py-3 bg-green-500/10 border border-green-500/20 rounded-full text-md text-green-600 font-medium">
           🎉 {t('yearly_saving_message', 'Get 2 months FREE with annual billing!')}
         </div>
       </div>

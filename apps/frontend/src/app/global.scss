@@ -15,6 +15,16 @@ body * {
   outline: none !important;
 }
 
+body.dark .sliderDiv .border-fifth{border-color:rgb(255 255 255 / 25%);}
+body.light .sliderDiv .border-fifth{border-color:rgb(0 0 0 / 32%);}
+body.light .sliderDiv .bg-customColor5{background-color:rgb(0 0 0 / 25%);}
+.bgCustomCss{background:#fff;}
+body.dark .bgCustomCss{background: #1a1a1a; border: 1px solid #393939;}
+body.light .bg-sixth svg path{fill:#444;}
+.sortdot{}
+.maxTextWidth{max-width:85%; overflow:hidden;}
+.maxTextWidth .truncate{text-overflow: inherit; white-space: inherit;}
+
 .box {
   position: relative;
 }

@@ -52,7 +52,7 @@ const SuccessComponent: FC = () => {
 
   return (
     <div className="flex justify-center items-center min-h-screen bg-gray-50">
-      <div className="max-w-md w-full mx-4 bg-white rounded-lg shadow-lg p-8 text-center">
+      <div className="max-w-md w-full mx-4 bgCustomCss rounded-lg shadow-lg p-8 text-center">
         {/* Success Icon */}
         <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
           <svg className="w-10 h-10 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -70,7 +70,7 @@ const SuccessComponent: FC = () => {
         </p>
 
         {/* Subscription Details */}
-        <div className="bg-gray-50 rounded-lg p-4 mb-6 text-left">
+        <div className="bg-gray-50 rounded-lg py-4 mb-6 text-left">
           <h3 className="font-medium text-gray-900 mb-2">Subscription Details:</h3>
           <div className="text-sm text-gray-600 space-y-1">
             {subscriptionId && (
