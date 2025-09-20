@@ -60,8 +60,7 @@ const nextConfig = {
 
 module.exports = nextConfig;
 EOF
-    mv next.config.temp.js next.config.js
-    echo "Temporary next.config.js created to skip type checking and linting."
+RUN cd /app/apps/frontend && mv next.config.temp.js next.config.js
 
 # Build the project with increased memory limit
 RUN NODE_OPTIONS="--max-old-space-size=4096" pnpm run build
