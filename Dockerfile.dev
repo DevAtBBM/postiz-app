@@ -35,16 +35,17 @@ RUN cd /app/apps/frontend && \
         cp next.config.js next.config.js.backup; \
     fi && \
     cat > next.config.temp.js << 'EOF'
-const path = require('path');
+import { existsSync } from 'fs';
+import path from 'path';
 
 // Try to load existing config
 let existingConfig = {};
 try {
-  if (require('fs').existsSync('./next.config.js.backup')) {
-    existingConfig = require('./next.config.js.backup') || {};
+  if (existsSync('./next.config.js.backup')) {
+    console.log('Existing config found, but using defaults for build compatibility');
   }
 } catch (e) {
-  console.log('No existing config found or error loading it, using defaults');
+  console.log('No existing config found, using defaults');
 }
 
 /** @type {import('next').NextConfig} */
@@ -56,9 +57,13 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
+  experimental: {
+    // Add any experimental features that might be needed
+    esmExternals: true,
+  },
 };
 
-module.exports = nextConfig;
+export default nextConfig;
 EOF
 RUN cd /app/apps/frontend && mv next.config.temp.js next.config.js
 
