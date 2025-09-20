@@ -4,13 +4,26 @@ import { useVariables } from '@gitroom/react/helpers/variable.context';
 import { useT } from '@gitroom/react/translation/get.transation.service.client';
 import { Logo } from '@gitroom/frontend/components/new-layout/logo';
 import { LogoutComponent } from '@gitroom/frontend/components/layout/logout.component';
-import React from 'react';
+import React, { useState } from 'react';
 import { OrganizationSelector } from '@gitroom/frontend/components/layout/organization.selector';
 
 export const BillingAfter = () => {
   const user = useUser();
   const { isGeneral, billingEnabled } = useVariables();
   const t = useT();
+  const [isVisible, setIsVisible] = useState(true);
+
+  const handleSkip = () => {
+    localStorage.setItem('billingSkipped', 'true');
+    setIsVisible(false);
+    // No need to redirect since we're already on the launches page
+  };
+
+  // If already skipped, don't show this component
+  if (!isVisible || (typeof window !== 'undefined' && localStorage.getItem('billingSkipped') === 'true')) {
+    return null;
+  }
+
   return (
     <div className="flex-1 rounded-3xl px-0 py-[17px] flex flex-col max-w-[1440px] mx-auto">
       <div>
@@ -94,6 +107,14 @@ export const BillingAfter = () => {
             </div>
           </div>
         )}
+      </div>
+      <div className="flex justify-center mb-[20px]">
+        <button
+          onClick={handleSkip}
+          className="bg-primary text-white px-[20px] py-[10px] rounded-[8px] hover:bg-primary/80 transition-colors"
+        >
+          {t('skip_and_continue', 'Skip and Continue with Free Plan')}
+        </button>
       </div>
       <BillingComponent />
       <div className="flex justify-center items-center mt-[20px]">

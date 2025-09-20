@@ -90,7 +90,7 @@ export const LayoutComponent = ({ children }: { children: ReactNode }) => {
             )}
           >
             <div>{user?.admin ? <Impersonate /> : <div />}</div>
-            {user.tier === 'FREE' && isGeneral && billingEnabled ? (
+            {user.tier === 'FREE' && isGeneral && billingEnabled && (typeof window === 'undefined' || localStorage.getItem('billingSkipped') !== 'true') ? (
               <BillingAfter />
             ) : (
               <div className="flex-1 flex gap-[8px]">

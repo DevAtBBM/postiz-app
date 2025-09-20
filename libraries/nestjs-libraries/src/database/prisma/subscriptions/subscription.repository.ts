@@ -179,10 +179,12 @@ export class SubscriptionRepository {
       currentPeriodEnd = now.endOf('month').toDate();
     }
 
-    await this._subscription.model.subscription.upsert({
+    console.log(`Creating/updating subscription for organization ${findOrg.id}, billing: ${billing}, customerId: '${customerId}', code: ${code}`);
+
+    const result = await this._subscription.model.subscription.upsert({
       where: {
         organizationId: findOrg.id,
-        ...(!code
+        ...(!code && customerId
           ? {
               organization: {
                 paymentId: customerId,
@@ -228,6 +230,8 @@ export class SubscriptionRepository {
         currentPeriodEnd,
       },
     });
+
+    console.log(`✅ Subscription upsert completed for organization ${findOrg.id}`);
 
     await this._organization.model.organization.update({
       where: {

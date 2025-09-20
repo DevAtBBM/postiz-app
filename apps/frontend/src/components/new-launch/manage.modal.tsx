@@ -279,14 +279,22 @@ export const ManageModal: FC<AddEditModalProps> = (props) => {
       }
 
       if (!dummy) {
-        addEditSets
-          ? addEditSets(data)
-          : await fetch('/posts', {
-              method: 'POST',
-              body: JSON.stringify(data),
-            });
+        if (addEditSets) {
+          addEditSets(data);
+        } else {
+          const response = await fetch('/posts', {
+            method: 'POST',
+            body: JSON.stringify(data),
+          });
 
-        if (!addEditSets) {
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            const errorMessage = errorData.message || `Failed to ${!existingData.integration ? 'create' : 'update'} post (Status: ${response.status})`;
+            toaster.show(errorMessage, 'warning');
+            setLoading(false);
+            return;
+          }
+
           mutate();
           toaster.show(
             !existingData.integration

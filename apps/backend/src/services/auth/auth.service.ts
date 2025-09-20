@@ -11,6 +11,7 @@ import { NewsletterService } from '@gitroom/nestjs-libraries/services/newsletter
 import { NotificationService } from '@gitroom/nestjs-libraries/database/prisma/notifications/notification.service';
 import { ForgotReturnPasswordDto } from '@gitroom/nestjs-libraries/dtos/auth/forgot-return.password.dto';
 import { EmailService } from '@gitroom/nestjs-libraries/services/email.service';
+import { SubscriptionService } from '@gitroom/nestjs-libraries/database/prisma/subscriptions/subscription.service';
 
 @Injectable()
 export class AuthService {
@@ -18,7 +19,8 @@ export class AuthService {
     private _userService: UsersService,
     private _organizationService: OrganizationService,
     private _notificationService: NotificationService,
-    private _emailService: EmailService
+    private _emailService: EmailService,
+    private _subscriptionService: SubscriptionService
   ) {}
   async canRegister(provider: string) {
     if (process.env.DISABLE_REGISTRATION !== 'true' || provider === Provider.GENERIC) {
@@ -59,6 +61,14 @@ export class AuthService {
           ip,
           userAgent
         );
+
+        // Create a FREE subscription for the new organization
+        try {
+          await this._subscriptionService.createFreeSubscription(create.id);
+        } catch (error) {
+          console.error('Failed to create FREE subscription for new organization:', create.id, error);
+          // Don't fail the user creation if subscription creation fails
+        }
 
         const addedOrg =
           addToOrg && typeof addToOrg !== 'boolean'
@@ -167,6 +177,14 @@ export class AuthService {
       ip,
       userAgent
     );
+
+    // Create a FREE subscription for the new organization
+    try {
+      await this._subscriptionService.createFreeSubscription(create.id);
+    } catch (error) {
+      console.error('Failed to create FREE subscription for new organization:', create.id, error);
+      // Don't fail the user creation if subscription creation fails
+    }
 
     await NewsletterService.register(providerUser.email);
 

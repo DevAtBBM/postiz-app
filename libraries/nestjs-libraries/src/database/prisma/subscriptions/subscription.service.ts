@@ -11,9 +11,11 @@ import { makeId } from '@gitroom/nestjs-libraries/services/make.is';
 export class SubscriptionService {
   constructor(
     private readonly _subscriptionRepository: SubscriptionRepository,
-    private readonly _integrationService: IntegrationService,
-    private readonly _organizationService: OrganizationService
+    private readonly _integrationService: IntegrationService
   ) {}
+
+  // Inject OrganizationService only when needed to avoid circular dependency
+  private _organizationService?: OrganizationService;
 
   getSubscriptionByOrganizationId(organizationId: string) {
     return this._subscriptionRepository.getSubscriptionByOrganizationId(
@@ -116,18 +118,20 @@ export class SubscriptionService {
       );
     }
 
-    if (from.team_members && !to.team_members) {
-      await this._organizationService.disableOrEnableNonSuperAdminUsers(
-        getOrgByCustomerId?.id!,
-        true
-      );
-    }
+    if (this._organizationService) {
+      if (from.team_members && !to.team_members) {
+        await this._organizationService.disableOrEnableNonSuperAdminUsers(
+          getOrgByCustomerId?.id!,
+          true
+        );
+      }
 
-    if (!from.team_members && to.team_members) {
-      await this._organizationService.disableOrEnableNonSuperAdminUsers(
-        getOrgByCustomerId?.id!,
-        false
-      );
+      if (!from.team_members && to.team_members) {
+        await this._organizationService.disableOrEnableNonSuperAdminUsers(
+          getOrgByCustomerId?.id!,
+          false
+        );
+      }
     }
 
     if (billing === 'FREE') {
@@ -165,7 +169,7 @@ export class SubscriptionService {
     code?: string,
     org?: { id: string }
   ) {
-    if (!code) {
+    if (!code && billing !== 'FREE') {
       try {
         // For PayPal subscription requests with new organizations, allow initial subscription creation
         // Don't block creation if modifySubscription returns false (organization not found yet)
