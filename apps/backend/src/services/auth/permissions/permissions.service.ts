@@ -46,20 +46,8 @@ export class PermissionsService {
       Ability<[AuthorizationActions, Sections]>
     >(Ability as AbilityClass<AppAbility>);
 
-    if (
-      requestedPermission.length === 0 ||
-      !process.env.STRIPE_PUBLISHABLE_KEY
-    ) {
-      for (const [action, section] of requestedPermission) {
-        can(action, section);
-      }
-      return build({
-        detectSubjectType: (item) =>
-          // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-          // @ts-ignore
-          item.constructor,
-      });
-    }
+    // Always check permissions, even in development environments
+    // The bypass was removed to ensure limits are properly enforced
 
     const { subscription, options } = await this.getPackageOptions(orgId);
     for (const [action, section] of requestedPermission) {
