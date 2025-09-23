@@ -57,7 +57,7 @@ const nextConfig = {
   },
   // Configure allowed development origins to prevent warnings
   // This IP is allowed for development purposes
-  allowedDevOrigins: ['147.93.153.163'],
+  allowedDevOrigins: ['147.93.153.163', 'stageapp.postnify.com', 'platform.postnify.com'],
 
 };
 
