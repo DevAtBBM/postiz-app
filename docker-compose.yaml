@@ -5,6 +5,14 @@ services:
       dockerfile: Dockerfile.dev
     container_name: postiz
     restart: always
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1.0'
+        reservations:
+          memory: 1G
+          cpus: '0.5'
     environment:
       # You must change these. `yourServerAddress` this needs to be exactly the URL you're accessing Postiz on.
       MAIN_URL: "https://platform.postnify.com"
@@ -38,6 +46,7 @@ services:
       - "traefik.http.services.postiz.loadbalancer.server.port=5000"  # Internal port for postiz
       - "traefik.http.routers.postiz.entrypoints=websecure"  # Postiz requires HTTPS
       - "traefik.http.routers.postiz.tls=true"
+      - "traefik.http.routers.postiz.timeout=120s"
     depends_on:
       postiz-postgres:
         condition: service_healthy
@@ -70,6 +79,12 @@ services:
     image: redis:7.2
     container_name: postiz-redis
     restart: always
+    sysctls:
+      - net.core.somaxconn=1024
+    deploy:
+    resources:
+      limits:
+        memory: 512M
     ports:
       - 6379:6379
     healthcheck:
