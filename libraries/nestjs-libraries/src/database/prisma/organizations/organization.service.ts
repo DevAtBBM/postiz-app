@@ -79,10 +79,23 @@ export class OrganizationService {
       process.env.FRONTEND_URL +
       `/?org=${AuthService.signJWT({ ...body, orgId, timeLimit, id })}`;
     if (body.sendEmail) {
+      const inviteHtml = `
+        <p>Hello,</p>
+        <p>You've been invited to join an organization on Postnify! 🎯</p>
+        <p>Organizations help you collaborate with your team and manage content more effectively. Click the button below to accept the invitation and get started.</p>
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${url}"
+             style="background-color: #26b9c0; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600; display: inline-block;">
+            Join Organization
+          </a>
+        </div>
+        <p><strong>Note:</strong> This invitation link will expire in 1 hour.</p>
+        <p>If you weren't expecting this invitation, you can safely ignore this email.</p>
+      `;
       await this._notificationsService.sendEmail(
         body.email,
-        'You have been invited to join an organization',
-        `You have been invited to join an organization. Click <a href="${url}">here</a> to join.<br />The link will expire in 1 hour.`
+        'Invitation to Join Postnify Organization',
+        inviteHtml
       );
     }
     return { url };

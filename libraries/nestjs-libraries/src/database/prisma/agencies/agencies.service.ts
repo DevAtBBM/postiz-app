@@ -35,48 +35,52 @@ export class AgenciesService {
     const agency = await this._agenciesRepository.getAgencyById(id);
 
     if (action === 'approve') {
+      const approveHtml = `
+        <p>Congratulations! 🎉</p>
+        <p>Your agency <strong>${agency?.name}</strong> has been approved and added to the Postnify Agency Network!</p>
+        <p>You can now showcase your services to potential clients and start monetizing your content creation expertise.</p>
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="https://postnify.com/agencies/${agency?.slug}"
+             style="background-color: #26b9c0; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600; display: inline-block;">
+            View Your Agency Page
+          </a>
+        </div>
+        <p><strong>What's next?</strong></p>
+        <ul>
+          <li>Your agency profile will appear in the main directory within the next 24 hours</li>
+          <li>Update your profile with more details to attract clients</li>
+          <li>Share your agency link on social media</li>
+          <li>Start receiving inquiries from potential clients</li>
+        </ul>
+        <p>Welcome to the Postnify community! If you have any questions, feel free to reply to this email.</p>
+      `;
       await this._notificationService.sendEmail(
         agency?.user?.email!,
-        'Your Agency has been approved and added to Postnify 🚀',
-        `
-<html lang="en">
-
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Your Agency has been approved and added to Postnify 🚀</title>
-</head>
-
-<body style="font-family: Arial, sans-serif; margin: 0; padding: 0;">
-  Hi there, <br /><br />
-  Your agency ${agency?.name} has been added to Postnify!<br />
-  You can <a href="https://postnify.com/agencies/${agency?.slug}">check it here</a><br />
-  It will appear on the main agency of Postnify in the next 24 hours.<br /><br />
-</body>
-</html>`
+        'Your Agency is Live on Postnify! 🎉',
+        approveHtml
       );
 
       return;
     }
 
+    const declineHtml = `
+      <p>Dear ${agency?.name} Team,</p>
+      <p>Thank you for your interest in joining the Postnify Agency Network.</p>
+      <p>After careful review, we've decided not to approve your agency application at this time. This could be due to various reasons such as:</p>
+      <ul>
+        <li>Content focus not aligning with our current network</li>
+        <li>Quality standards not meeting our requirements</li>
+        <li>Other strategic considerations</li>
+      </ul>
+      <p>We appreciate your understanding and encourage you to continue building your content creation business.</p>
+      <p>If you believe this decision was made in error or if you'd like feedback on how to improve your application for future consideration, please reply to this email.</p>
+      <p>We wish you the best in your endeavors!</p>
+      <p>Best regards,<br>The Postnify Team</p>
+    `;
     await this._notificationService.sendEmail(
       agency?.user?.email!,
-      'Your Agency has been declined 😔',
-      `
-<html lang="en">
-
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Your Agency has been declined</title>
-</head>
-
-<body style="font-family: Arial, sans-serif; margin: 0; padding: 0;">
-  Hi there, <br /><br />
-  Your agency ${agency?.name} has been declined to Postnify!<br />
-  If you think we have made a mistake, please reply to this email and let us know
-</body>
-</html>`
+      'Agency Application Update',
+      declineHtml
     );
 
     return;

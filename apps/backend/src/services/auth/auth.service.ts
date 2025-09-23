@@ -81,10 +81,22 @@ export class AuthService {
             : false;
 
         const obj = { addedOrg, jwt: await this.jwt(create.users[0].user) };
+        const activationHtml = `
+          <p>Welcome to Postnify! 🎉</p>
+          <p>Thank you for registering. To complete your account setup and start creating amazing content, please activate your account by clicking the button below.</p>
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${process.env.FRONTEND_URL}/auth/activate/${obj.jwt}"
+               style="background-color: #26b9c0; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600; display: inline-block;">
+              Activate Your Account
+            </a>
+          </div>
+          <p>This link will expire in 24 hours for security reasons.</p>
+          <p>If you didn't create an account, you can safely ignore this email.</p>
+        `;
         await this._emailService.sendEmail(
           body.email,
-          'Activate your account',
-          `Click <a href="${process.env.FRONTEND_URL}/auth/activate/${obj.jwt}">here</a> to activate your account`
+          'Welcome to Postnify - Activate Your Account',
+          activationHtml
         );
         return obj;
       }
@@ -202,10 +214,23 @@ export class AuthService {
       expires: dayjs().add(20, 'minutes').format('YYYY-MM-DD HH:mm:ss'),
     });
 
+    const resetHtml = `
+      <p>Hello,</p>
+      <p>We received a request to reset your password for your Postnify account. If you made this request, click the button below to reset your password.</p>
+      <div style="text-align: center; margin: 30px 0;">
+        <a href="${process.env.FRONTEND_URL}/auth/forgot/${resetValues}"
+           style="background-color: #26b9c0; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600; display: inline-block;">
+          Reset Your Password
+        </a>
+      </div>
+      <p><strong>Important:</strong> This link will expire in 20 minutes for security reasons.</p>
+      <p>If you didn't request a password reset, please ignore this email. Your password will remain unchanged.</p>
+      <p>For your security, never share this email or the reset link with anyone.</p>
+    `;
     await this._notificationService.sendEmail(
       user.email,
-      'Reset your password',
-      `You have requested to reset your passsord. <br />Click <a href="${process.env.FRONTEND_URL}/auth/forgot/${resetValues}">here</a> to reset your password<br />The link will expire in 20 minutes`
+      'Reset Your Postnify Password',
+      resetHtml
     );
   }
 
@@ -308,10 +333,22 @@ export class AuthService {
         : false;
 
     const obj = { addedOrg, jwt: await this.jwt(user) };
+    const activationHtml = `
+      <p>Welcome back to Postnify! 🎉</p>
+      <p>You've been added to a new organization. To access it, please activate your account by clicking the button below.</p>
+      <div style="text-align: center; margin: 30px 0;">
+        <a href="${process.env.FRONTEND_URL}/auth/activate/${obj.jwt}"
+           style="background-color: #26b9c0; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600; display: inline-block;">
+          Activate Your Account
+        </a>
+      </div>
+      <p>This link will expire in 24 hours for security reasons.</p>
+      <p>If you didn't request this, you can safely ignore this email.</p>
+    `;
     await this._emailService.sendEmail(
       body.email,
-      'Activate your account',
-      `Click <a href="${process.env.FRONTEND_URL}/auth/activate/${obj.jwt}">here</a> to activate your account`
+      'Welcome to Postnify - Activate Your Account',
+      activationHtml
     );
     return obj;
   }

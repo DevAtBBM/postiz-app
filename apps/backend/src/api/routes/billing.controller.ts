@@ -181,10 +181,16 @@ export class BillingController {
       console.log(`PayPal: Reactivating subscription for org ${org.id}`);
 
       // Send reactivation notification
+      const reactivationHtml = `
+        <p>Subscription Reactivation Confirmed</p>
+        <p>The subscription for <strong>${org.name}</strong> has been successfully reactivated.</p>
+        <p>The organization will continue to have access to all paid features and their billing cycle will resume as normal.</p>
+        <p>If you have any questions about this reactivation, please contact our support team.</p>
+      `;
       await this._notificationService.sendEmail(
         process.env.EMAIL_FROM_ADDRESS,
-        'Subscription Reactivated',
-        `Organization ${org.name} has reactivated their subscription.`,
+        'Subscription Reactivated - Postnify',
+        reactivationHtml,
         user.email
       );
 
@@ -197,10 +203,17 @@ export class BillingController {
       console.log(`PayPal: Cancelling subscription for org ${org.id}, scheduled to end at ${cancelAt}`);
 
       // Send cancellation notification
+      const cancellationHtml = `
+        <p>Subscription Cancellation Notice</p>
+        <p>The subscription for <strong>${org.name}</strong> has been cancelled.</p>
+        <p><strong>Cancellation reason:</strong> ${body.feedback || 'Not specified'}</p>
+        <p>The organization will continue to have access to paid features until the end of their current billing period. After that date, they'll be downgraded to the free plan.</p>
+        <p>If this cancellation was made in error or if you'd like to reactivate the subscription, please contact our support team immediately.</p>
+      `;
       await this._notificationService.sendEmail(
         process.env.EMAIL_FROM_ADDRESS,
-        'Subscription Cancelled',
-        `Organization ${org.name} has cancelled their subscription because: ${body.feedback}`,
+        'Subscription Cancelled - Postnify',
+        cancellationHtml,
         user.email
       );
 
@@ -491,47 +504,47 @@ export class BillingController {
     }
   ) {
     try {
-      // Send billing issue email
+      // Send billing issue email to support
       const subject = `Billing Issue Report - ${org.name}`;
-      const emailBody = `
-        Billing Issue Report
-
-        Organization: ${org.name}
-        Organization ID: ${org.id}
-        User: ${user.name || user.email} (${user.email})
-
-        Issue Type: ${body.issueType}
-        Severity: ${body.severity}
-        Description: ${body.description}
-
-        Reported at: ${new Date().toISOString()}
+      const supportHtml = `
+        <p><strong>New Billing Issue Report</strong></p>
+        <p><strong>Organization:</strong> ${org.name}</p>
+        <p><strong>Organization ID:</strong> ${org.id}</p>
+        <p><strong>User:</strong> ${user.name || user.email} (${user.email})</p>
+        <p><strong>Issue Type:</strong> ${body.issueType}</p>
+        <p><strong>Severity:</strong> ${body.severity}</p>
+        <p><strong>Description:</strong></p>
+        <p>${body.description}</p>
+        <p><strong>Reported at:</strong> ${new Date().toISOString()}</p>
       `;
 
       await this._notificationService.sendEmail(
         process.env.EMAIL_FROM_ADDRESS,
         subject,
-        emailBody,
+        supportHtml,
         process.env.SUPPORT_EMAIL_ADDRESS || process.env.EMAIL_FROM_ADDRESS
       );
 
       // Send confirmation to user
-      const userConfirmation = `
-        Dear ${user.name || 'User'},
-
-        Thank you for reporting a billing issue. Our support team will review your case and respond within 24 hours.
-
-        Issue Details:
-        - Type: ${body.issueType}
-        - Severity: ${body.severity}
-
-        Best regards,
-        Gitroom Support Team
+      const reference = Math.random().toString(36).substr(2, 6).toUpperCase();
+      const userHtml = `
+        <p>Dear ${user.name || 'User'},</p>
+        <p>Thank you for reporting a billing issue with your Postnify account. Our support team has received your report and will review your case within 24 hours.</p>
+        <p><strong>Issue Details:</strong></p>
+        <ul>
+          <li><strong>Type:</strong> ${body.issueType}</li>
+          <li><strong>Severity:</strong> ${body.severity}</li>
+          <li><strong>Reference:</strong> #${reference}</li>
+        </ul>
+        <p>We appreciate your patience and will get back to you as soon as possible.</p>
+        <p>If you need immediate assistance, please don't hesitate to reply to this email.</p>
+        <p>Best regards,<br>The Postnify Support Team</p>
       `;
 
       await this._notificationService.sendEmail(
         process.env.EMAIL_FROM_ADDRESS,
-        'Billing Issue Received - Reference #' + Math.random().toString(36).substr(2, 6).toUpperCase(),
-        userConfirmation,
+        `Billing Issue Received - Reference #${reference}`,
+        userHtml,
         user.email
       );
 
@@ -547,10 +560,17 @@ export class BillingController {
 
   private async notifyPaymentRetry(org: Organization, paymentId: string) {
     // Send payment retry notification
+    const retryHtml = `
+      <p>Payment Retry Initiated</p>
+      <p>A payment retry has been automatically initiated for <strong>${org.name}</strong>.</p>
+      <p><strong>Payment ID:</strong> ${paymentId}</p>
+      <p>The system will attempt to process the payment again. If successful, the subscription will remain active. If it fails again, the organization may be downgraded or suspended.</p>
+      <p>Please monitor the payment status and contact the customer if needed.</p>
+    `;
     await this._notificationService.sendEmail(
       process.env.EMAIL_FROM_ADDRESS,
-      'Payment Retry Initiated',
-      `Payment retry has been initiated for ${org.name} (Payment ID: ${paymentId})`,
+      'Payment Retry Initiated - Postnify',
+      retryHtml,
       process.env.PAYMENT_NOTIFICATION_EMAIL || process.env.EMAIL_FROM_ADDRESS
     );
   }

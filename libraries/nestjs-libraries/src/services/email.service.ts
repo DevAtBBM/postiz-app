@@ -45,55 +45,53 @@ export class EmailService {
       return;
     }
 
+    const logoUrl = `${process.env.FRONTEND_URL || 'https://postnify.com'}/img/postnify-logo.svg`;
     const modifiedHtml = `
-    <div style="
-        background: linear-gradient(to bottom right, #e6f2ff, #f0e6ff);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 2rem;
-    ">
-        <div style="
-            background-color: rgba(255, 255, 255, 0.9);
-            backdrop-filter: blur(4px);
-            border-radius: 0.5rem;
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-            max-width: 48rem;
-            width: 100%;
-            padding: 2rem;
-        ">
-            <h1 style="
-                font-size: 1.875rem;
-                font-weight: bold;
-                margin-bottom: 1.5rem;
-                text-align: left;
-                color: #1f2937;
-            ">${subject}</h1>
-            
-            <div style="
-                margin-bottom: 2rem;
-                color: #374151;
-            ">
-                ${html}
-            </div>
-            
-            <div style="
-                display: flex;
-                align-items: center;
-                border-top: 1px solid #e5e7eb;
-                padding-top: 1.5rem;
-            ">
-                <div>
-                    <h2 style="
-                        font-size: 1.25rem;
-                        font-weight: 600;
-                        color: #1f2937;
-                        margin: 0;
-                    ">${process.env.EMAIL_FROM_NAME}</h2>
-                </div>
-            </div>
-        </div>
-    </div>
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>${subject}</title>
+    </head>
+    <body style="margin: 0; padding: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f8f9fa;">
+        <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #f8f9fa;">
+            <tr>
+                <td align="center" style="padding: 40px 20px;">
+                    <table width="600" border="0" cellspacing="0" cellpadding="0" style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); overflow: hidden;">
+                        <!-- Header with Logo -->
+                        <tr>
+                            <td style="padding: 40px 40px 20px; background-color: #26b9c0; text-align: center;">
+                                <img src="${logoUrl}" alt="Postnify" style="max-width: 150px; height: auto;">
+                            </td>
+                        </tr>
+                        <!-- Content -->
+                        <tr>
+                            <td style="padding: 40px;">
+                                <h1 style="margin: 0 0 24px; font-size: 28px; font-weight: 700; color: #1f2937; text-align: center;">${subject}</h1>
+                                <div style="color: #4b5563; font-size: 16px; line-height: 1.6;">
+                                    ${html}
+                                </div>
+                            </td>
+                        </tr>
+                        <!-- Footer -->
+                        <tr>
+                            <td style="padding: 20px 40px 40px; background-color: #f8f9fa; text-align: center; border-top: 1px solid #e5e7eb;">
+                                <p style="margin: 0; font-size: 14px; color: #6b7280;">
+                                    Sent by <strong>${process.env.EMAIL_FROM_NAME || 'Postnify'}</strong><br>
+                                    Need help? Contact our support team.
+                                </p>
+                                <p style="margin: 10px 0 0; font-size: 12px; color: #9ca3af;">
+                                    © 2025 Postnify. All rights reserved.
+                                </p>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
+    </body>
+    </html>
     `;
 
     const sends = await concurrencyService('send-email', () =>
