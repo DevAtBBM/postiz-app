@@ -98,6 +98,22 @@ export class IntegrationManager {
     );
   }
 
+  getAllRulesDescription(): {
+    [key: string]: string;
+  } {
+    return socialIntegrationList.reduce(
+      (all, current) => ({
+        ...all,
+        [current.identifier]:
+          Reflect.getMetadata(
+            'custom:rules:description',
+            current.constructor
+          ) || '',
+      }),
+      {}
+    );
+  }
+
   getAllPlugs() {
     return socialIntegrationList
       .map((p) => {

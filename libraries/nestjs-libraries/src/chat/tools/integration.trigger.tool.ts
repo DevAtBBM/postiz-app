@@ -10,19 +10,16 @@ import { validationMetadatasToSchemas } from 'class-validator-jsonschema';
 import { IntegrationService } from '@gitroom/nestjs-libraries/database/prisma/integrations/integration.service';
 import { RefreshToken } from '@gitroom/nestjs-libraries/integrations/social.abstract';
 import { timer } from '@gitroom/helpers/utils/timer';
-import { checkAuth } from '@gitroom/nestjs-libraries/chat/auth.context';
-import { RefreshIntegrationService } from '@gitroom/nestjs-libraries/integrations/refresh.integration.service';
 
 @Injectable()
 export class IntegrationTriggerTool implements AgentToolInterface {
   constructor(
     private _integrationManager: IntegrationManager,
-    private _integrationService: IntegrationService,
-    private _refreshIntegrationService: RefreshIntegrationService
+    private _integrationService: IntegrationService
   ) {}
   name = 'triggerTool';
 
-  run() {
+  async run(): Promise<any> {
     return createTool({
       id: 'triggerTool',
       description: `After using the integrationSchema, we sometimes miss details we can\'t ask from the user, like ids.
@@ -42,16 +39,12 @@ export class IntegrationTriggerTool implements AgentToolInterface {
         ),
       }),
       outputSchema: z.object({
-        output: z.array(z.record(z.string(), z.any())),
+        output: z.array(z.object()),
       }),
-      execute: async (args, options) => {
-        const { context, runtimeContext } = args;
-        checkAuth(args, options);
+      execute: async ({ runtimeContext, context }) => {
         console.log('triggerTool', context);
-        const organizationId = JSON.parse(
-          // @ts-ignore
-          runtimeContext.get('organization') as string
-        ).id;
+        // @ts-ignore
+        const organizationId = runtimeContext.get('organization') as string;
 
         const getIntegration =
           await this._integrationService.getIntegrationById(
@@ -105,25 +98,32 @@ export class IntegrationTriggerTool implements AgentToolInterface {
 
             return { output: load };
           } catch (err) {
+            console.log(err);
             if (err instanceof RefreshToken) {
-              const data = await this._refreshIntegrationService.refresh(
-                getIntegration
+              const {
+                accessToken,
+                refreshToken,
+                expiresIn,
+                additionalSettings,
+              } = await integrationProvider.refreshToken(
+                getIntegration.refreshToken
               );
 
-              if (!data) {
-                await this._integrationService.disconnectChannel(
-                  organizationId,
-                  getIntegration
-                );
-                return {
-                  output:
-                    'We had to disconnect the channel as the token expired',
-                };
-              }
-
-              const { accessToken } = data;
-
               if (accessToken) {
+                await this._integrationService.createOrUpdateIntegration(
+                  additionalSettings,
+                  !!integrationProvider.oneTimeToken,
+                  getIntegration.organizationId,
+                  getIntegration.name,
+                  getIntegration.picture!,
+                  'social',
+                  getIntegration.internalId,
+                  getIntegration.providerIdentifier,
+                  accessToken,
+                  refreshToken,
+                  expiresIn
+                );
+
                 getIntegration.token = accessToken;
 
                 if (integrationProvider.refreshWait) {
@@ -132,6 +132,14 @@ export class IntegrationTriggerTool implements AgentToolInterface {
 
                 continue;
               } else {
+                await this._integrationService.disconnectChannel(
+                  organizationId,
+                  getIntegration
+                );
+                return {
+                  output:
+                    'We had to disconnect the channel as the token expired',
+                };
               }
             }
             return { output: 'Unexpected error' };
