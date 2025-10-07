@@ -11,9 +11,10 @@ import { AgentModule } from '@gitroom/nestjs-libraries/agent/agent.module';
 import { McpModule } from '@gitroom/backend/mcp/mcp.module';
 import { ThirdPartyModule } from '@gitroom/nestjs-libraries/3rdparties/thirdparty.module';
 import { VideoModule } from '@gitroom/nestjs-libraries/videos/video.module';
-import { SentryModule } from "@sentry/nestjs/setup";
+import { SentryModule } from '@sentry/nestjs/setup';
 import { FILTER } from '@gitroom/nestjs-libraries/sentry/sentry.exception';
 import { BillingModule } from '@gitroom/nestjs-libraries/database/prisma/subscriptions/billing.module';
+import { ChatModule } from '@gitroom/nestjs-libraries/chat/chat.module';
 
 @Global()
 @Module({
@@ -28,6 +29,7 @@ import { BillingModule } from '@gitroom/nestjs-libraries/database/prisma/subscri
     McpModule,
     ThirdPartyModule,
     VideoModule,
+    ChatModule,
     ThrottlerModule.forRoot([
       {
         ttl: 3600000,
@@ -45,7 +47,7 @@ import { BillingModule } from '@gitroom/nestjs-libraries/database/prisma/subscri
     {
       provide: APP_GUARD,
       useClass: PoliciesGuard,
-    }
+    },
   ],
   exports: [
     BullMqModule,
@@ -56,6 +58,7 @@ import { BillingModule } from '@gitroom/nestjs-libraries/database/prisma/subscri
     AgentModule,
     McpModule,
     ThrottlerModule,
+    ChatModule,
   ],
 })
 export class AppModule {}
