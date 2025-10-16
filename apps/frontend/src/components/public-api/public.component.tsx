@@ -32,13 +32,13 @@ export const PublicComponent = () => {
       <h3 className="text-[20px]">{t('public_api', 'Public API')}</h3>
       <div className="text-customColor18 mt-[4px]">
         {t(
-          'use_postnify_api_to_integrate_with_your_tools',
-          'Use Postnify API to integrate with your tools.'
+          'use_postiz_api_to_integrate_with_your_tools',
+          'Use Postiz API to integrate with your tools.'
         )}
         <br />
         <a
           className="underline hover:font-bold hover:underline"
-          href="https://docs.postnify.com/public-api"
+          href="https://docs.postiz.com/public-api"
           target="_blank"
         >
           {t(
@@ -48,27 +48,27 @@ export const PublicComponent = () => {
         </a>
         <a
           className="underline hover:font-bold hover:underline"
-          href="https://www.npmjs.com/package/n8n-nodes-postnify"
+          href="https://www.npmjs.com/package/n8n-nodes-postiz"
           target="_blank"
         ><br />
           {t(
             'check_n8n',
-            'Check out our N8N custom node for Postnify.'
+            'Check out our N8N custom node for Postiz.'
           )}
         </a>
       </div>
-      <div className="my-[16px] mt-[16px] bg-sixth border-fifth items-center border rounded-[4px] p-[24px] flex gap-[10px]">
-        <div className="flex items-center maxTextWidth">
+      <div className="my-[16px] mt-[16px] bg-sixth border-fifth items-center border rounded-[4px] p-[24px] flex gap-[24px]">
+        <div className="flex items-center">
           {reveal ? (
             user.publicApi
           ) : (
             <>
-              <div className="blur-sm flex-1 min-w-0 truncate">{user.publicApi.slice(0, -5)}</div>
-              <div className="font-medium shrink-0">{user.publicApi.slice(-5)}</div>
+              <div className="blur-sm">{user.publicApi.slice(0, -5)}</div>
+              <div>{user.publicApi.slice(-5)}</div>
             </>
           )}
         </div>
-        <div className="shrink-0">
+        <div>
           {!reveal ? (
             <Button onClick={() => setReveal(true)}>
               {t('reveal', 'Reveal')}
@@ -84,21 +84,21 @@ export const PublicComponent = () => {
       <h3 className="text-[20px]">{t('mcp', 'MCP')}</h3>
       <div className="text-customColor18 mt-[4px]">
         {t(
-          'connect_your_mcp_client_to_postnify_to_schedule_your_posts_faster',
-          'Connect your MCP client to Postnify to schedule your posts faster!'
+          'connect_your_mcp_client_to_postiz_to_schedule_your_posts_faster',
+          'Connect Postiz MCP server to your client (Http streaming) to schedule your posts faster.'
         )}
       </div>
-      <div className="my-[16px] mt-[16px] bg-sixth border-fifth items-center border rounded-[4px] p-[24px] flex gap-[10px]">
-        <div className="flex items-center maxTextWidth">
+      <div className="my-[16px] mt-[16px] bg-sixth border-fifth items-center border rounded-[4px] p-[24px] flex gap-[24px]">
+        <div className="flex items-center">
           {reveal2 ? (
-            `${backendUrl}/mcp/` + user.publicApi + '/sse'
+            `${backendUrl}/mcp/` + user.publicApi
           ) : (
             <>
-              <div className="blur-sm flex-1 min-w-0 truncate">
-                {(`${backendUrl}/mcp/` + user.publicApi + '/sse').slice(0, -5)}
+              <div className="blur-sm">
+                {(`${backendUrl}/mcp/` + user.publicApi).slice(0, -5)}
               </div>
-              <div className="font-medium shrink-0">
-                {(`${backendUrl}/mcp/` + user.publicApi + '/sse').slice(-5)}
+              <div>
+                {(`${backendUrl}/mcp/` + user.publicApi).slice(-5)}
               </div>
             </>
           )}

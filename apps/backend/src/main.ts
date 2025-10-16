@@ -1,4 +1,5 @@
 import { loadSwagger } from '@gitroom/helpers/swagger/load.swagger';
+import { json } from 'express';
 
 process.env.TZ = 'UTC';
 
@@ -13,12 +14,14 @@ initializeSentry('backend', true);
 import { SubscriptionExceptionFilter } from '@gitroom/backend/services/auth/permissions/subscription.exception';
 import { HttpExceptionFilter } from '@gitroom/nestjs-libraries/services/exception.filter';
 import { ConfigurationChecker } from '@gitroom/helpers/configuration/configuration.checker';
+import { startMcp } from '@gitroom/nestjs-libraries/chat/start.mcp';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     rawBody: true,
     cors: {
       ...(!process.env.NOT_SECURED ? { credentials: true } : {}),
+      allowedHeaders: ['Content-Type', 'Authorization'],
       exposedHeaders: [
         'reload',
         'onboarding',
@@ -30,23 +33,30 @@ async function bootstrap() {
         'http://localhost:3000',
         'http://localhost:3003',
         'http://localhost:4200',
-       'http://127.0.0.1:3000',
-       'http://127.0.0.1:3003',
-       'http://127.0.0.1:4200',
-       'http://147.93.153.163:3000',
-       'http://147.93.153.163:3003',
-       'http://147.93.153.163:4200',
-       'http://147.93.153.163',
+        'http://127.0.0.1:3000',
+        'http://127.0.0.1:3003',
+        'http://127.0.0.1:4200',
+        'http://147.93.153.163:3000',
+        'http://147.93.153.163:3003',
+        'http://147.93.153.163:4200',
+        'http://147.93.153.163',
+        'http://localhost:6274',
         ...(process.env.MAIN_URL ? [process.env.MAIN_URL] : []),
       ],
     },
   });
+
+  await startMcp(app);
 
   app.useGlobalPipes(
     new ValidationPipe({
       transform: true,
     })
   );
+
+  app.use('/copilot', (req: any, res: any, next: any) => {
+    json({ limit: '50mb' })(req, res, next);
+  });
 
   app.use(cookieParser());
   app.useGlobalFilters(new SubscriptionExceptionFilter());

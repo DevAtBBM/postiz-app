@@ -2,17 +2,14 @@ import { AgentToolInterface } from '@gitroom/nestjs-libraries/chat/agent.tool.in
 import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
 import { Injectable } from '@nestjs/common';
-import {
-  IntegrationManager,
-  socialIntegrationList,
-} from '@gitroom/nestjs-libraries/integrations/integration.manager';
-import { validationMetadatasToSchemas } from 'class-validator-jsonschema';
+import { socialIntegrationList } from '@gitroom/nestjs-libraries/integrations/integration.manager';
 import { IntegrationService } from '@gitroom/nestjs-libraries/database/prisma/integrations/integration.service';
-import { RefreshToken } from '@gitroom/nestjs-libraries/integrations/social.abstract';
-import { timer } from '@gitroom/helpers/utils/timer';
 import { PostsService } from '@gitroom/nestjs-libraries/database/prisma/posts/posts.service';
 import { makeId } from '@gitroom/nestjs-libraries/services/make.is';
 import { AllProvidersSettings } from '@gitroom/nestjs-libraries/dtos/posts/providers-settings/all.providers.settings';
+import { validate } from 'class-validator';
+import { Integration } from '@prisma/client';
+import { checkAuth } from '@gitroom/nestjs-libraries/chat/auth.context';
 
 @Injectable()
 export class IntegrationSchedulePostTool implements AgentToolInterface {
@@ -22,7 +19,7 @@ export class IntegrationSchedulePostTool implements AgentToolInterface {
   ) {}
   name = 'integrationSchedulePostTool';
 
-  async run(): Promise<any> {
+  run() {
     return createTool({
       id: 'schedulePostTool',
       description: `
@@ -36,69 +33,123 @@ If the user want to post a post to LinkedIn with one comment
 If the user want to post 20 posts for facebook each in individual days without comments
 - socialPost array length will be 20
 - postsAndComments array length will be one
+
+If the tools return errors, you would need to rerun it with the right parameters, don't ask again, just run it
 `,
-      requireApproval: true,
       inputSchema: z.object({
-        socialPost: z.array(
-          z.object({
-            integrationId: z
-              .string()
-              .describe('The id of the integration (not internal id)'),
-            date: z.string().describe('The date of the post in UTC time'),
-            shortLink: z
-              .boolean()
-              .describe(
-                'If the post has a link inside, we can ask the user if they want to add a short link'
-              ),
-            type: z
-              .enum(['draft', 'schedule', 'now'])
-              .describe(
-                'The type of the post, if we pass now, we should pass the current date also'
-              ),
-            postsAndComments: z
-              .array(
-                z.object({
-                  content: z.string().describe('The content of the post'),
-                  image: z
-                    .array(z.string())
-                    .describe('The image of the post (URLS)'),
-                })
-              )
-              .describe(
-                'first item is the post, every other item is the comments'
-              ),
-            settings: z
-              .array(
-                z.object({
-                  key: z.string().describe('Name of the settings key to pass'),
-                  value: z.string().describe('Value of the key'),
-                })
-              )
-              .describe(
-                'This relies on the integrationSchema tool to get the settings [input:settings]'
-              ),
-          })
-        ).describe('Individual post')
+        socialPost: z
+          .array(
+            z.object({
+              integrationId: z
+                .string()
+                .describe('The id of the integration (not internal id)'),
+              date: z.string().describe('The date of the post in UTC time'),
+              shortLink: z
+                .boolean()
+                .describe(
+                  'If the post has a link inside, we can ask the user if they want to add a short link'
+                ),
+              type: z
+                .enum(['draft', 'schedule', 'now'])
+                .describe(
+                  'The type of the post, if we pass now, we should pass the current date also'
+                ),
+              postsAndComments: z
+                .array(
+                  z.object({
+                    content: z
+                      .string()
+                      .describe(
+                        "The content of the post, HTML, Each line must be wrapped in <p> here is the possible tags: h1, h2, h3, u, strong, li, ul, p (you can't have u and strong together)"
+                      ),
+                    attachments: z
+                      .array(z.string())
+                      .describe('The image of the post (URLS)'),
+                  })
+                )
+                .describe(
+                  'first item is the post, every other item is the comments'
+                ),
+              settings: z
+                .array(
+                  z.object({
+                    key: z
+                      .string()
+                      .describe('Name of the settings key to pass'),
+                    value: z
+                      .any()
+                      .describe(
+                        'Value of the key, always prefer the id then label if possible'
+                      ),
+                  })
+                )
+                .describe(
+                  'This relies on the integrationSchema tool to get the settings [input:settings]'
+                ),
+            })
+          )
+          .describe('Individual post'),
       }),
       outputSchema: z.object({
-        output: z.array(
-          z.object({
-            id: z.string(),
-            postId: z.string(),
-            releaseURL: z.string(),
-            status: z.string(),
-          })
-        ),
+        output: z
+          .array(
+            z.object({
+              id: z.string(),
+              postId: z.string(),
+              releaseURL: z.string(),
+              status: z.string(),
+            })
+          )
+          .or(z.object({ errors: z.string() })),
       }),
-      execute: async ({ runtimeContext, context }) => {
-        // @ts-ignore
-        const organizationId = runtimeContext.get('organization') as string;
+      execute: async (args, options) => {
+        const { context, runtimeContext } = args;
+        checkAuth(args, options);
+        console.log(JSON.stringify(context, null, 2));
+        const organizationId = JSON.parse(
+          // @ts-ignore
+          runtimeContext.get('organization') as string
+        ).id;
         const finalOutput = [];
+
+        const integrations = {} as Record<string, Integration>;
+        for (const platform of context.socialPost) {
+          integrations[platform.integrationId] =
+            await this._integrationService.getIntegrationById(
+              organizationId,
+              platform.integrationId
+            );
+
+          const { dto } = socialIntegrationList.find(
+            (p) =>
+              p.identifier ===
+              integrations[platform.integrationId].providerIdentifier
+          )!;
+
+          if (dto) {
+            const newDTO = new dto();
+            const obj = Object.assign(
+              newDTO,
+              platform.settings.reduce(
+                (acc, s) => ({
+                  ...acc,
+                  [s.key]: s.value,
+                }),
+                {} as AllProvidersSettings
+              )
+            );
+            const errors = await validate(obj);
+            if (errors.length) {
+              console.log(errors);
+              return {
+                errors: JSON.stringify(errors),
+              };
+            }
+          }
+        }
+
         for (const post of context.socialPost) {
-          const integration = await this._integrationService.getIntegrationById(
-            organizationId,
-            post.integrationId
-          );
+          const integration = integrations[post.integrationId];
 
           if (!integration) {
             throw new Error('Integration not found');
@@ -123,7 +174,7 @@ If the user want to post 20 posts for facebook each in individual days without c
                 value: post.postsAndComments.map((p) => ({
                   content: p.content,
                   id: makeId(10),
-                  image: p.image.map((p) => ({
+                  image: p.attachments.map((p) => ({
                     id: makeId(10),
                     path: p,
                   })),
