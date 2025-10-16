@@ -37,13 +37,7 @@ export class CopilotController {
     private _mastraService: MastraService
   ) {}
   @Post('/chat')
-  //@UseGuards(QuotaGuard)
-  async chat(
-    @Req() req: Request,
-    @Res() res: Response,
-    @GetOrgFromRequest() org: Organization
-  ): Promise<void> {
-    Logger.log(`Copilot chat request received from org: ${org.id}, request body keys: ${Object.keys(req.body || {})}`);
+  chatAgent(@Req() req: Request, @Res() res: Response) {
     if (
       process.env.OPENAI_API_KEY === undefined ||
       process.env.OPENAI_API_KEY === ''
