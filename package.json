@@ -307,6 +307,9 @@
   "pnpm": {
     "onlyBuiltDependencies": [
       "bcrypt"
-    ]
+    ],
+    "overrides": {
+      "exit-hook": "2.2.1"
+    }
   }
 }
