@@ -55,7 +55,7 @@ async function bootstrap() {
     })
   );
 
-  app.use('/copilot', (req: any, res: any, next: any) => {
+  app.use('/copilot/*', (req: any, res: any, next: any) => {
     json({ limit: '50mb' })(req, res, next);
   });
 
