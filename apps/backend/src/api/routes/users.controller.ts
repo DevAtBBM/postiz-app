@@ -226,6 +226,18 @@ export class UsersController {
         maxAge: -1,
         expires: new Date(0),
       });
+    response.header('logout', 'true');
+    response.cookie('auth', '', {
+      domain: getCookieUrlFromDomain(process.env.FRONTEND_URL!),
+      ...(!process.env.NOT_SECURED
+        ? {
+            secure: true,
+            httpOnly: true,
+            sameSite: 'none',
+          }
+        : {}),
+      maxAge: -1,
+      expires: new Date(0),
     });
 
     // Also clear cookies on the root domain to handle historical inconsistencies
