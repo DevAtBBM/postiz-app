@@ -22,6 +22,7 @@ import { RealIP } from 'nestjs-real-ip';
 import { UserAgent } from '@gitroom/nestjs-libraries/user/user.agent';
 import { Provider } from '@prisma/client';
 import { ProvidersFactory } from '@gitroom/backend/services/auth/providers/providers.factory';
+import * as Sentry from '@sentry/nestjs';
 
 @ApiTags('Auth')
 @Controller('/auth')
@@ -135,12 +136,12 @@ export class AuthController {
         }
       }
 
+      Sentry.metrics.count("new_user", 1);
       if (isFromReferral && plan) {
         response.header('billing', plan);
       } else {
         response.header('onboarding', 'true');
       }
-
       response.status(200).json({
         register: true,
       });
