@@ -19,6 +19,7 @@ import { useT } from '@gitroom/react/translation/get.transation.service.client';
 import { ModalWrapperComponent } from '@gitroom/frontend/components/new-launch/modal.wrapper.component';
 import { useUser } from '@gitroom/frontend/components/layout/user.context';
 import { useIntegrationList } from '@gitroom/frontend/components/launches/helpers/use.integration.list';
+import clsx from 'clsx';
 const resolver = classValidatorResolver(ApiKeyDto);
 
 const UpgradeModal: FC = () => {
@@ -549,7 +550,7 @@ export const AddProviderComponent: FC<{
                   <img src={`/icons/platforms/youtube.svg`} />
                 ) : (
                   <img
-                    className="w-[32px] h-[32px] rounded-full"
+                    className={clsx("w-[32px] h-[32px]", item.identifier !== 'google_my_business' && 'rounded-full')}
                     src={`/icons/platforms/${item.identifier}.png`}
                   />
                 )}
