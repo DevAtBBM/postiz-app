@@ -135,6 +135,38 @@ export const Features: FC<{
     </div>
   );
 };
+
+const Accept: FC<{ resolve: (res: boolean) => void }> = ({ resolve }) => {
+  const [loading, setLoading] = useState(false);
+  const fetch = useFetch();
+  const toaster = useToaster();
+
+  const apply = useCallback(async () => {
+    setLoading(true);
+    await fetch('/billing/apply-discount', {
+      method: 'POST',
+    });
+
+    resolve(true);
+    toaster.show('50% discount applied successfully');
+  }, []);
+
+  return (
+    <div>
+      <div className="mb-[20px]">
+        Would you accept 50% discount for 3 months instead? 🙏🏻
+      </div>
+      <div className="flex gap-[10px]">
+        <Button loading={loading} onClick={apply}>
+          Apply 50% discount for 3 months
+        </Button>
+        <Button onClick={() => resolve(false)} className="!bg-red-800">
+          Cancel my subscription
+        </Button>
+      </div>
+    </div>
+  );
+};
 const Info: FC<{
   proceed: (feedback: string) => void;
   isReactivation?: boolean;
@@ -295,14 +327,36 @@ export const MainBillingComponent: FC<{
         } else {
           // This is a cancellation request
           if (
-            await deleteDialog(
-              `Are you sure you want to cancel your subscription? ${messages.join(
-                ', '
-              )}`,
+            subscription?.cancelAt ||
+            (await deleteDialog(
+              `Are you sure you want to cancel your subscription?
+              ${messages.join(', ')}`,
               'Yes, cancel',
               'Cancel Subscription'
             )
           ) {
+            const checkDiscount = await (
+              await fetch('/billing/check-discount')
+            ).json();
+            if (checkDiscount.offerCoupon) {
+              const info = await new Promise((res) => {
+                modal.openModal({
+                  title: 'Before you cancel',
+                  withCloseButton: true,
+                  classNames: {
+                    modal: 'bg-transparent text-textColor',
+                  },
+                  children: <Accept resolve={res} />,
+                });
+              });
+
+              modal.closeAll();
+
+              if (info) {
+                return;
+              }
+            }
+
             const info = await new Promise((res) => {
               modal.openModal({
                 title: t(
@@ -317,6 +371,7 @@ export const MainBillingComponent: FC<{
                 size: 'auto',
               });
             });
+
             setLoading(true);
             const { cancel_at } = await (
               await fetch('/billing/cancel', {
