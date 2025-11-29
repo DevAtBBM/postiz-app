@@ -339,65 +339,65 @@ export const MainBillingComponent: FC<{
         }
         return;
       }
-      if (
-        messages.length &&
-        !(await deleteDialog(messages.join(', '), 'Yes, continue'))
-      ) {
-        return;
-      }
-      setLoading(true);
-      const { url, portal } = await (
-        await fetch('/billing/subscribe', {
-          method: 'POST',
-          body: JSON.stringify({
-            period: monthlyOrYearly === 'on' ? 'YEARLY' : 'MONTHLY',
-            utm,
-            billing,
-            tolt: tolt(),
-          }),
-        })
-      ).json();
-      if (url) {
-        await track(TrackEnum.InitiateCheckout, {
-          value:
-            pricing[billing][
-              monthlyOrYearly === 'on' ? 'year_price' : 'month_price'
-            ],
-        });
-        window.location.href = url;
-        return;
-      }
-      if (portal) {
         if (
-          await deleteDialog(
-            'We could not charge your credit card, please update your payment method',
-            'Update',
-            'Payment Method Required'
-          )
+          messages.length &&
+          !(await deleteDialog(messages.join(', '), 'Yes, continue'))
         ) {
-          window.open(portal);
+          return;
         }
-      } else {
-        setPeriod(monthlyOrYearly === 'on' ? 'YEARLY' : 'MONTHLY');
-        setSubscription((subs) => ({
-          ...subs!,
-          subscriptionTier: billing,
-          cancelAt: null,
-        }));
-        mutate(
-          '/user/self',
-          {
-            ...user,
-            tier: billing,
-          },
-          {
-            revalidate: false,
+        setLoading(true);
+        const { url, portal } = await (
+          await fetch('/billing/subscribe', {
+            method: 'POST',
+            body: JSON.stringify({
+              period: monthlyOrYearly === 'on' ? 'YEARLY' : 'MONTHLY',
+              utm,
+              billing,
+              tolt: tolt(),
+            }),
+          })
+        ).json();
+        if (url) {
+          await track(TrackEnum.InitiateCheckout, {
+            value:
+              pricing[billing][
+                monthlyOrYearly === 'on' ? 'year_price' : 'month_price'
+              ],
+          });
+          window.location.href = url;
+          return;
+        }
+        if (portal) {
+          if (
+            await deleteDialog(
+              'We could not charge your credit card, please update your payment method',
+              'Update',
+              'Payment Method Required'
+            )
+          ) {
+            window.open(portal);
           }
-        );
-        toast.show('Subscription updated successfully');
-      }
-      setLoading(false);
-    },
+        } else {
+          setPeriod(monthlyOrYearly === 'on' ? 'YEARLY' : 'MONTHLY');
+          setSubscription((subs) => ({
+            ...subs!,
+            subscriptionTier: billing,
+            cancelAt: null,
+          }));
+          mutate(
+            '/user/self',
+            {
+              ...user,
+              tier: billing,
+            },
+            {
+              revalidate: false,
+            }
+          );
+          toast.show('Subscription updated successfully');
+        }
+        setLoading(false);
+      },
     [monthlyOrYearly, subscription, user, utm]
   );
   if (user?.isLifetime) {
