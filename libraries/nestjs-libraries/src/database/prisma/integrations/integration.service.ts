@@ -8,6 +8,9 @@ import {
 } from '@gitroom/nestjs-libraries/integrations/social/social.integrations.interface';
 import { Integration, Organization } from '@prisma/client';
 import { NotificationService } from '@gitroom/nestjs-libraries/database/prisma/notifications/notification.service';
+import { LinkedinPageProvider } from '@gitroom/nestjs-libraries/integrations/social/linkedin.page.provider';
+import { GmbProvider } from '@gitroom/nestjs-libraries/integrations/social/gmb.provider';
+import { YoutubeProvider } from '@gitroom/nestjs-libraries/integrations/social/youtube.provider';
 import dayjs from 'dayjs';
 import { timer } from '@gitroom/helpers/utils/timer';
 import { ioRedis } from '@gitroom/nestjs-libraries/redis/redis.service';
@@ -308,6 +311,70 @@ export class IntegrationService {
       name: getIntegrationInformation.name,
       inBetweenSteps: false,
       token: getIntegrationInformation.access_token,
+      profile: getIntegrationInformation.username,
+    });
+
+    return { success: true };
+  }
+
+  async saveFacebook(org: string, id: string, page: string) {
+    const getIntegration = await this._integrationRepository.getIntegrationById(
+      org,
+      id
+    );
+    if (getIntegration && !getIntegration.inBetweenSteps) {
+      throw new HttpException('Invalid request', HttpStatus.BAD_REQUEST);
+    }
+
+    const facebook = this._integrationManager.getSocialIntegration(
+      'facebook'
+    ) as FacebookProvider;
+    const getIntegrationInformation = await facebook.fetchPageInformation(
+      getIntegration?.token!,
+      page
+    );
+
+    await this.checkForDeletedOnceAndUpdate(org, getIntegrationInformation.id);
+    await this._integrationRepository.updateIntegration(id, {
+      picture: getIntegrationInformation.picture,
+      internalId: getIntegrationInformation.id,
+      name: getIntegrationInformation.name,
+      inBetweenSteps: false,
+      token: getIntegrationInformation.access_token,
+      profile: getIntegrationInformation.username,
+    });
+
+    return { success: true };
+  }
+
+  async saveGmb(
+    org: string,
+    id: string,
+    data: { id: string; accountName: string; locationName: string }
+  ) {
+    const getIntegration = await this._integrationRepository.getIntegrationById(
+      org,
+      id
+    );
+    if (getIntegration && !getIntegration.inBetweenSteps) {
+      throw new HttpException('Invalid request', HttpStatus.BAD_REQUEST);
+    }
+
+    const gmb = this._integrationManager.getSocialIntegration(
+      'gmb'
+    ) as GmbProvider;
+    const getIntegrationInformation = await gmb.fetchPageInformation(
+      getIntegration?.token!,
+      data
+    );
+
+    await this.checkForDeletedOnceAndUpdate(org, getIntegrationInformation.id);
+    await this._integrationRepository.updateIntegration(id, {
+      picture: getIntegrationInformation.picture,
+      internalId: getIntegrationInformation.id,
+      name: getIntegrationInformation.name,
+      inBetweenSteps: false,
+      token: getIntegration?.token!,
       profile: getIntegrationInformation.username,
     });
 

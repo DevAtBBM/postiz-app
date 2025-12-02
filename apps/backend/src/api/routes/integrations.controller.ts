@@ -531,6 +531,15 @@ export class IntegrationsController {
     return this._integrationService.saveProviderPage(org.id, id, body);
   }
 
+  @Post('/youtube/:id')
+  async saveYoutube(
+    @Param('id') id: string,
+    @Body() body: { id: string },
+    @GetOrgFromRequest() org: Organization
+  ) {
+    return this._integrationService.saveYoutube(org.id, id, body);
+  }
+
   @Post('/enable')
   enableChannel(
     @GetOrgFromRequest() org: Organization,
