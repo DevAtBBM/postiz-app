@@ -11,7 +11,11 @@ import dayjs from 'dayjs';
 import { Integration } from '@prisma/client';
 import { Plug } from '@gitroom/helpers/decorators/plug.decorator';
 import { timer } from '@gitroom/helpers/utils/timer';
+import { Rules } from '@gitroom/nestjs-libraries/chat/rules.description.decorator';
 
+@Rules(
+  'LinkedIn can have maximum one attachment when selecting video, when choosing a carousel on LinkedIn minimum amount of attachment must be two, and only pictures, if uploading a video, LinkedIn can have only one attachment'
+)
 export class LinkedinPageProvider
   extends LinkedinProvider
   implements SocialProvider
@@ -145,7 +149,7 @@ export class LinkedinPageProvider
     id: string,
     requiredId: string,
     accessToken: string
-  ): Promise<Omit<AuthTokenDetails, 'refreshToken' | 'expiresIn'>> {
+  ): Promise<AuthTokenDetails> {
     const information = await this.fetchPageInformation(accessToken, {
       page: requiredId,
     });
@@ -154,6 +158,8 @@ export class LinkedinPageProvider
       id: information.id,
       name: information.name,
       accessToken: information.access_token,
+      refreshToken: information.access_token,
+      expiresIn: dayjs().add(59, 'days').unix() - dayjs().unix(),
       picture: information.picture,
       username: information.username,
     };

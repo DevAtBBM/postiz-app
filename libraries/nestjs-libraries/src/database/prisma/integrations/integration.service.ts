@@ -1,4 +1,4 @@
-import { forwardRef, HttpException, HttpStatus, Inject, Injectable } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { IntegrationRepository } from '@gitroom/nestjs-libraries/database/prisma/integrations/integration.repository';
 import { IntegrationManager } from '@gitroom/nestjs-libraries/integrations/integration.manager';
 import {
@@ -8,9 +8,6 @@ import {
 } from '@gitroom/nestjs-libraries/integrations/social/social.integrations.interface';
 import { Integration, Organization } from '@prisma/client';
 import { NotificationService } from '@gitroom/nestjs-libraries/database/prisma/notifications/notification.service';
-import { LinkedinPageProvider } from '@gitroom/nestjs-libraries/integrations/social/linkedin.page.provider';
-import { GmbProvider } from '@gitroom/nestjs-libraries/integrations/social/gmb.provider';
-import { YoutubeProvider } from '@gitroom/nestjs-libraries/integrations/social/youtube.provider';
 import dayjs from 'dayjs';
 import { timer } from '@gitroom/helpers/utils/timer';
 import { ioRedis } from '@gitroom/nestjs-libraries/redis/redis.service';
@@ -22,7 +19,6 @@ import { BullMqClient } from '@gitroom/nestjs-libraries/bull-mq-transport-new/cl
 import { difference, uniq } from 'lodash';
 import utc from 'dayjs/plugin/utc';
 import { AutopostRepository } from '@gitroom/nestjs-libraries/database/prisma/autopost/autopost.repository';
-import { RefreshIntegrationService } from '@gitroom/nestjs-libraries/integrations/refresh.integration.service';
 
 dayjs.extend(utc);
 
@@ -34,9 +30,7 @@ export class IntegrationService {
     private _autopostsRepository: AutopostRepository,
     private _integrationManager: IntegrationManager,
     private _notificationService: NotificationService,
-    private _workerServiceProducer: BullMqClient,
-    @Inject(forwardRef(() => RefreshIntegrationService))
-    private _refreshIntegrationService: RefreshIntegrationService
+    private _workerServiceProducer: BullMqClient
   ) {}
 
   async changeActiveCron(orgId: string) {
@@ -190,9 +184,7 @@ export class IntegrationService {
       orgId,
       `Could not refresh your ${integration.providerIdentifier} channel ${err}`,
       `Could not refresh your ${integration.providerIdentifier} channel ${err}. Please go back to the system and connect it again ${process.env.FRONTEND_URL}/launches`,
-      true,
-      false,
-      'info'
+      true
     );
   }
 
@@ -317,70 +309,6 @@ export class IntegrationService {
     return { success: true };
   }
 
-  async saveFacebook(org: string, id: string, page: string) {
-    const getIntegration = await this._integrationRepository.getIntegrationById(
-      org,
-      id
-    );
-    if (getIntegration && !getIntegration.inBetweenSteps) {
-      throw new HttpException('Invalid request', HttpStatus.BAD_REQUEST);
-    }
-
-    const facebook = this._integrationManager.getSocialIntegration(
-      'facebook'
-    ) as FacebookProvider;
-    const getIntegrationInformation = await facebook.fetchPageInformation(
-      getIntegration?.token!,
-      page
-    );
-
-    await this.checkForDeletedOnceAndUpdate(org, getIntegrationInformation.id);
-    await this._integrationRepository.updateIntegration(id, {
-      picture: getIntegrationInformation.picture,
-      internalId: getIntegrationInformation.id,
-      name: getIntegrationInformation.name,
-      inBetweenSteps: false,
-      token: getIntegrationInformation.access_token,
-      profile: getIntegrationInformation.username,
-    });
-
-    return { success: true };
-  }
-
-  async saveGmb(
-    org: string,
-    id: string,
-    data: { id: string; accountName: string; locationName: string }
-  ) {
-    const getIntegration = await this._integrationRepository.getIntegrationById(
-      org,
-      id
-    );
-    if (getIntegration && !getIntegration.inBetweenSteps) {
-      throw new HttpException('Invalid request', HttpStatus.BAD_REQUEST);
-    }
-
-    const gmb = this._integrationManager.getSocialIntegration(
-      'gmb'
-    ) as GmbProvider;
-    const getIntegrationInformation = await gmb.fetchPageInformation(
-      getIntegration?.token!,
-      data
-    );
-
-    await this.checkForDeletedOnceAndUpdate(org, getIntegrationInformation.id);
-    await this._integrationRepository.updateIntegration(id, {
-      picture: getIntegrationInformation.picture,
-      internalId: getIntegrationInformation.id,
-      name: getIntegrationInformation.name,
-      inBetweenSteps: false,
-      token: getIntegration?.token!,
-      profile: getIntegrationInformation.username,
-    });
-
-    return { success: true };
-  }
-
   async checkAnalytics(
     org: Organization,
     integration: string,
@@ -405,16 +333,39 @@ export class IntegrationService {
       dayjs(getIntegration?.tokenExpiration).isBefore(dayjs()) ||
       forceRefresh
     ) {
-      const data = await this._refreshIntegrationService.refresh(
-        getIntegration
-      );
-      if (!data) {
-        return [];
-      }
-
-      const { accessToken } = data;
+      const { accessToken, expiresIn, refreshToken, additionalSettings } =
+        await new Promise<AuthTokenDetails>((res) => {
+          return integrationProvider
+            .refreshToken(getIntegration.refreshToken!)
+            .then((r) => res(r))
+            .catch(() => {
+              res({
+                error: '',
+                accessToken: '',
+                id: '',
+                name: '',
+                picture: '',
+                username: '',
+                additionalSettings: undefined,
+              });
+            });
+        });
 
       if (accessToken) {
+        await this.createOrUpdateIntegration(
+          additionalSettings,
+          !!integrationProvider.oneTimeToken,
+          getIntegration.organizationId,
+          getIntegration.name,
+          getIntegration.picture!,
+          'social',
+          getIntegration.internalId,
+          getIntegration.providerIdentifier,
+          accessToken,
+          refreshToken,
+          expiresIn
+        );
+
         getIntegration.token = accessToken;
 
         if (integrationProvider.refreshWait) {
@@ -513,13 +464,51 @@ export class IntegrationService {
       dayjs(getIntegration?.tokenExpiration).isBefore(dayjs()) ||
       forceRefresh
     ) {
-      const data = await this._refreshIntegrationService.refresh(
-        getIntegration
-      );
-      if (!data) {
-        return;
+      const { accessToken, expiresIn, refreshToken, additionalSettings } =
+        await new Promise<AuthTokenDetails>((res) => {
+          getSocialIntegration
+            .refreshToken(getIntegration.refreshToken!)
+            .then((r) => res(r))
+            .catch(() =>
+              res({
+                accessToken: '',
+                expiresIn: 0,
+                refreshToken: '',
+                id: '',
+                name: '',
+                username: '',
+                picture: '',
+                additionalSettings: undefined,
+              })
+            );
+        });
+
+      if (!accessToken) {
+        await this.refreshNeeded(
+          getIntegration.organizationId,
+          getIntegration.id
+        );
+
+        await this.informAboutRefreshError(
+          getIntegration.organizationId,
+          getIntegration
+        );
+        return {};
       }
-      const { accessToken } = data;
+
+      await this.createOrUpdateIntegration(
+        additionalSettings,
+        !!getSocialIntegration.oneTimeToken,
+        getIntegration.organizationId,
+        getIntegration.name,
+        getIntegration.picture!,
+        'social',
+        getIntegration.internalId,
+        getIntegration.providerIdentifier,
+        accessToken,
+        refreshToken,
+        expiresIn
+      );
 
       getIntegration.token = accessToken;
 

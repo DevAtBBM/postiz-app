@@ -38,7 +38,6 @@ import {
   Sections,
 } from '@gitroom/backend/services/auth/permissions/permission.exception.class';
 import { uniqBy } from 'lodash';
-import { RefreshIntegrationService } from '@gitroom/nestjs-libraries/integrations/refresh.integration.service';
 
 @ApiTags('Integrations')
 @Controller('/integrations')
@@ -46,8 +45,7 @@ export class IntegrationsController {
   constructor(
     private _integrationManager: IntegrationManager,
     private _integrationService: IntegrationService,
-    private _postService: PostsService,
-    private _refreshIntegrationService: RefreshIntegrationService
+    private _postService: PostsService
   ) {}
   @Get('/')
   getIntegrations() {
@@ -340,24 +338,37 @@ export class IntegrationsController {
         return load;
       } catch (err) {
         if (err instanceof RefreshToken) {
-          const data = await this._refreshIntegrationService.refresh(
-            getIntegration
-          );
-
-          if (!data) {
-            return;
-          }
-
-          const { accessToken } = data;
+          const { accessToken, refreshToken, expiresIn, additionalSettings } =
+            await integrationProvider.refreshToken(getIntegration.refreshToken);
 
           if (accessToken) {
+            await this._integrationService.createOrUpdateIntegration(
+              additionalSettings,
+              !!integrationProvider.oneTimeToken,
+              getIntegration.organizationId,
+              getIntegration.name,
+              getIntegration.picture!,
+              'social',
+              getIntegration.internalId,
+              getIntegration.providerIdentifier,
+              accessToken,
+              refreshToken,
+              expiresIn
+            );
+
+            getIntegration.token = accessToken;
+
             if (integrationProvider.refreshWait) {
               await timer(10000);
             }
             return this.functionIntegration(org, body);
+          } else {
+            await this._integrationService.disconnectChannel(
+              org.id,
+              getIntegration
+            );
+            return false;
           }
-
-          return false;
         }
 
         return false;
@@ -448,7 +459,7 @@ export class IntegrationsController {
           refresh,
           auth.accessToken
         );
-        return res({ ...newAuth, refreshToken: body.refresh });
+        return res(newAuth);
       }
 
       return res(auth);
@@ -529,15 +540,6 @@ export class IntegrationsController {
     @GetOrgFromRequest() org: Organization
   ) {
     return this._integrationService.saveProviderPage(org.id, id, body);
-  }
-
-  @Post('/youtube/:id')
-  async saveYoutube(
-    @Param('id') id: string,
-    @Body() body: { id: string },
-    @GetOrgFromRequest() org: Organization
-  ) {
-    return this._integrationService.saveYoutube(org.id, id, body);
   }
 
   @Post('/enable')
