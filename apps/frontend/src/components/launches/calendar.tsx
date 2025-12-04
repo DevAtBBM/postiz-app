@@ -208,7 +208,7 @@ export const WeekView = () => {
           {localizedDays.map((day, index) => (
             <div
               key={day.name}
-              className="p-2 text-center bg-newTableHeader flex justify-center items-center flex-col h-[62px] rounded-[8px] sticky top-0 z-[20]"
+              className="z-10 p-2 text-center bg-newTableHeader flex justify-center items-center flex-col h-[62px] rounded-[8px] sticky top-0"
             >
               <div className="text-[14px] font-[500] text-newTableText">
                 {day.name}
@@ -306,7 +306,7 @@ export const MonthView = () => {
           {localizedDays.map((day) => (
             <div
               key={day}
-              className="z-[20] p-2 bg-newTableHeader flex justify-center items-center flex-col h-[62px] rounded-[8px] sticky top-0"
+              className="z-10 p-2 bg-newTableHeader flex justify-center items-center flex-col h-[62px] rounded-[8px] sticky top-0"
             >
               <div>{day}</div>
             </div>
@@ -314,7 +314,7 @@ export const MonthView = () => {
           {calendarDays.map((date, index) => (
             <div
               key={index}
-              className="text-center items-center justify-center flex"
+              className="text-center items-center justify-center flex min-h-[100px]"
             >
               <CalendarColumn
                 getDate={newDayjs(date.day).endOf('day')}
