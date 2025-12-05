@@ -1,51 +1,14 @@
 generator client {
   provider = "prisma-client-js"
-  binaryTargets = ["native"]
   runtime  = "nodejs"
 }
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model Organization {
-<<<<<<< HEAD
-  id                 String               @id @default(uuid())
-  name               String
-  description        String?
-  apiKey             String?
-  users              UserOrganization[]
-  media              Media[]
-  paymentId          String?
-  createdAt          DateTime             @default(now())
-  updatedAt          DateTime             @updatedAt
-  github             GitHub[]
-  subscription       Subscription?
-  Integration        Integration[]
-  post               Post[]               @relation("organization")
-  submittedPost      Post[]               @relation("submittedForOrg")
-  allowTrial         Boolean              @default(false)
-  isTrailing         Boolean              @default(false)
-  Comments           Comments[]
-  notifications      Notifications[]
-  buyerOrganization  MessagesGroup[]
-  usedCodes          UsedCodes[]
-  credits            Credits[]
-  plugs              Plugs[]
-  customers          Customer[]
-  webhooks           Webhooks[]
-  tags               Tags[]
-  signatures         Signatures[]
-  autoPost           AutoPost[]
-  sets               Sets[]
-  thirdParty         ThirdParty[]
-  errors             Errors[]
-  PaymentTransaction PaymentTransaction[]
-  UsageRecord        UsageRecord[]
-  paypalCustomer     PayPalCustomer?      // PayPal customer data
-  paypalBillingMessages PayPalBillingMessage[]
-  paypalBillingHistory PayPalBillingHistory[]
-=======
   id                String             @id @default(uuid())
   name              String
   description       String?
@@ -76,7 +39,6 @@ model Organization {
   usedCodes         UsedCodes[]
   users             UserOrganization[]
   webhooks          Webhooks[]
->>>>>>> c982e30e (feat: notifcations settings)
 }
 
 model Tags {
@@ -107,44 +69,6 @@ model TagsPosts {
 }
 
 model User {
-<<<<<<< HEAD
-  id                        String              @id @default(uuid())
-  email                     String
-  password                  String?
-  providerName              Provider
-  name                      String?
-  lastName                  String?
-  isSuperAdmin              Boolean             @default(false)
-  bio                       String?
-  audience                  Int                 @default(0)
-  pictureId                 String?
-  picture                   Media?              @relation(fields: [pictureId], references: [id])
-  providerId                String?
-  organizations             UserOrganization[]
-  timezone                  Int
-  comments                  Comments[]
-  createdAt                 DateTime            @default(now())
-  updatedAt                 DateTime            @updatedAt
-  lastReadNotifications     DateTime            @default(now())
-  inviteId                  String?
-  activated                 Boolean             @default(false)
-  items                     ItemUser[]
-  marketplace               Boolean             @default(true)
-  account                   String?
-  connectedAccount          Boolean             @default(false)
-  groupBuyer                MessagesGroup[]     @relation("groupBuyer")
-  groupSeller               MessagesGroup[]     @relation("groupSeller")
-  orderBuyer                Orders[]            @relation("orderBuyer")
-  orderSeller               Orders[]            @relation("orderSeller")
-  payoutProblems            PayoutProblems[]
-  lastOnline                DateTime            @default(now())
-  agencies                  SocialMediaAgency[]
-  ip                        String?
-  agent                     String?
-  emailVerificationAttempts Int                 @default(0)
-  lastEmailVerificationSent DateTime?
-  emailVerificationResetAt  DateTime?
-=======
   id                    String             @id @default(uuid())
   email                 String
   password              String?
@@ -180,7 +104,6 @@ model User {
   organizations         UserOrganization[]
   sendSuccessEmails     Boolean            @default(true)
   sendFailureEmails     Boolean            @default(true)
->>>>>>> c982e30e (feat: notifcations settings)
 
   @@unique([email, providerName])
   @@index([lastReadNotifications])
@@ -360,266 +283,8 @@ model Subscription {
   deletedAt        DateTime?
   organization     Organization     @relation(fields: [organizationId], references: [id])
 
-  // Extended fields for new billing system
-  currentPeriodStart  DateTime?
-  currentPeriodEnd    DateTime?
-  trialEnd            DateTime?
-  paymentStatus       PaymentStatus @default(ACTIVE)
-  renewsAutomatically Boolean       @default(true)
-  paymentMethod       String?
-  lastPaymentAttempt  DateTime?
-
-  // Usage limits (from current plan)
-  postsPerMonth    Int?
-  aiImagesPerMonth Int?
-  aiVideosPerMonth Int?
-  maxChannels      Int?
-  maxTeamMembers   Int?
-
-  // Relationships
-  paymentTransactions PaymentTransaction[]
-  usageRecords        UsageRecord[]
-  subscriptionHistory SubscriptionHistory[]
-
   @@index([organizationId])
   @@index([deletedAt])
-  @@index([subscriptionTier])
-  @@index([paymentStatus])
-}
-
-model SubscriptionPlan {
-  id          String           @id @default(uuid())
-  name        String // Plan name (FREE, STANDARD, TEAM, PRO, ULTIMATE)
-  displayName String // Display name for UI
-  description String
-  tier        SubscriptionTier @unique
-
-  // Pricing
-  monthlyPrice Int // Price in cents
-  yearlyPrice  Int? // Price in cents
-  currency     String @default("USD")
-  trialDays    Int    @default(0)
-
-  // Limits
-  maxChannels         Int
-  maxPostsPerMonth    Int
-  maxAiImagesPerMonth Int
-  maxAiVideosPerMonth Int
-  maxTeamMembers      Int
-  maxWebhooks         Int
-
-  // Features
-  hasAi                 Boolean @default(false)
-  hasAutoPost           Boolean @default(false)
-  hasPublicApi          Boolean @default(false)
-  hasImportFromChannels Boolean @default(false)
-  hasCommunityFeatures  Boolean @default(false)
-  hasFeaturedByGitroom  Boolean @default(false)
-
-  // Plan settings
-  isFree    Boolean @default(false)
-  isPopular Boolean @default(false)
-  isHidden  Boolean @default(false)
-  sortOrder Int     @default(0)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([tier])
-  @@index([isFree])
-  @@index([sortOrder])
-}
-
-model PaymentTransaction {
-  id             String        @id @default(uuid())
-  organizationId String
-  organization   Organization  @relation(fields: [organizationId], references: [id])
-  subscriptionId String?
-  subscription   Subscription? @relation(fields: [subscriptionId], references: [id])
-
-  // Payment provider details
-  provider              PaymentProvider
-  providerTransactionId String?         @unique
-  paymentMethod         String?
-
-  // Transaction details
-  amount   Int // Amount in cents
-  currency String                   @default("USD")
-  status   PaymentTransactionStatus
-  type     PaymentType
-
-  // Additional transaction data
-  description   String?
-  metadata      Json? // Store provider-specific data
-  failureReason String?
-
-  // Timing
-  processedAt DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-
-  @@index([organizationId])
-  @@index([subscriptionId])
-  @@index([providerTransactionId])
-  @@index([status])
-  @@index([createdAt])
-}
-
-// PayPal-specific customer mapping and billing management
-model PayPalCustomer {
-  id             String       @id @default(uuid())
-  organizationId String       @unique
-  organization   Organization @relation(fields: [organizationId], references: [id])
-
-  // PayPal customer data
-  paypalPayerId   String? // PayPal payer ID
-  paypalEmail     String? // PayPal email
-  paypalName      String? // PayPal full name
-
-  // Billing portal preferences
-  billingCycle     String    @default("monthly") // monthly, yearly
-  paymentMethod    String?   // PayPal, credit card, etc.
-
-  // Subscription management
-  currentPlanId    String?   // PayPal subscription plan ID
-  subscriptionStatus String   @default("NONE") // NONE, ACTIVE, PENDING, CANCELLED, PAST_DUE
-
-  // Custom fields for billing portal
-  portalEnabled     Boolean   @default(true)
-  emailNotifications Boolean @default(true)
-  autoRenew         Boolean   @default(true)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([organizationId])
-  @@index([paypalPayerId])
-  @@index([subscriptionStatus])
-}
-
-model PayPalBillingMessage {
-  id             String         @id @default(uuid())
-  organizationId String
-  organization   Organization   @relation(fields: [organizationId], references: [id])
-
-  // Message details
-  type          BillingMessageType // INFO, WARNING, ERROR, SUCCESS
-  title         String
-  message       String
-  actionUrl     String? // URL for user action
-  actionLabel   String? // Label for action button
-
-  // Visibility and timing
-  isDismissable Boolean      @default(true)
-  expiresAt     DateTime?    // Auto-dismiss date
-  dismissedAt   DateTime?
-
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
-
-  @@index([organizationId])
-  @@index([type])
-  @@index([dismissedAt])
-}
-
-model PayPalBillingHistory {
-  id             String       @id @default(uuid())
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id])
-
-  // History details
-  action        BillingAction // CANCELLED, UPGRADED, DOWNGRADED, RENEWED, FAILED
-  description   String
-  oldValue      String?       // Previous value
-  newValue      String?       // New value
-
-  // Related data
-  subscriptionId String?
-  transactionId  String?
-
-  // Metadata
-  metadata      Json?
-
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
-
-  @@index([organizationId])
-  @@index([action])
-  @@index([createdAt])
-}
-
-enum BillingMessageType {
-  INFO
-  WARNING
-  ERROR
-  SUCCESS
-}
-
-enum BillingAction {
-  SUBSCRIPTION_CREATED
-  SUBSCRIPTION_UPDATED
-  SUBSCRIPTION_CANCELLED
-  PAYMENT_SUCCEEDED
-  PAYMENT_FAILED
-  PLAN_CHANGED
-  TRIAL_STARTED
-  TRIAL_ENDED
-  RENEWAL_SUCCESS
-  RENEWAL_FAILED
-}
-
-model UsageRecord {
-  id             String       @id @default(uuid())
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id])
-  subscriptionId String
-  subscription   Subscription @relation(fields: [subscriptionId], references: [id])
-
-  usageType   UsageType
-  amount      Int // How much was used
-  periodStart DateTime // Usage period start
-  periodEnd   DateTime // Usage period end
-
-  // Context (optional)
-  resourceId   String? // e.g., postId, integrationId
-  resourceType String? // e.g., 'post', 'integration'
-  metadata     Json? // Additional context
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@unique([organizationId, usageType, periodStart, resourceId])
-  @@index([organizationId])
-  @@index([subscriptionId])
-  @@index([usageType])
-  @@index([periodStart, periodEnd])
-}
-
-model SubscriptionHistory {
-  id             String       @id @default(uuid())
-  subscriptionId String
-  subscription   Subscription @relation(fields: [subscriptionId], references: [id])
-
-  oldTier   SubscriptionTier?
-  newTier   SubscriptionTier
-  oldPeriod Period?
-  newPeriod Period?
-
-  // Track important changes
-  oldPrice     Int?
-  newPrice     Int?
-  changeReason SubscriptionChangeReason?
-  metadata     Json? // Additional change details
-
-  // Who initiated the change
-  initiatedBy  String? // User ID who made the change
-  initiatedVia String? // e.g., 'api', 'webhook', 'admin'
-
-  createdAt DateTime @default(now())
-
-  @@index([subscriptionId])
-  @@index([newTier])
-  @@index([createdAt])
 }
 
 model Customer {
@@ -1182,66 +847,11 @@ enum State {
   DRAFT
 }
 
-// New billing enums for comprehensive subscription system
 enum SubscriptionTier {
-  FREE
   STANDARD
-  TEAM
   PRO
+  TEAM
   ULTIMATE
-}
-
-enum PaymentStatus {
-  ACTIVE
-  CANCELLED
-  PAST_DUE
-  UNPAID
-  TRIALING
-  INCOMPLETE
-}
-
-enum PaymentProvider {
-  RAZORPAY
-  PAYPAL
-  STRIPE
-  MANUAL
-}
-
-enum PaymentTransactionStatus {
-  PENDING
-  PROCESSING
-  SUCCEEDED
-  FAILED
-  CANCELLED
-  REFUNDED
-  PARTIALLY_REFUNDED
-}
-
-enum PaymentType {
-  SUBSCRIPTION_PAYMENT
-  UPGRADE_PAYMENT
-  DOWNGRADE_CREDIT
-  REFUND
-  MANUAL_ADJUSTMENT
-}
-
-enum UsageType {
-  POSTS
-  AI_IMAGES
-  AI_VIDEOS
-  WEBHOOKS
-  API_CALLS
-  INTEGRATIONS
-}
-
-enum SubscriptionChangeReason {
-  USER_UPGRADE
-  USER_DOWNGRADE
-  PAYMENT_FAILED
-  ADMIN_CHANGE
-  AUTOMATIC_RENEWAL
-  PLAN_UPDATE
-  CANCELLATION
 }
 
 enum Period {

@@ -57,24 +57,11 @@ export class UsersService {
     return this._usersRepository.changePersonal(userId, body);
   }
 
-<<<<<<< HEAD
-  incrementEmailVerificationAttempts(userId: string) {
-    return this._usersRepository.incrementEmailVerificationAttempts(userId);
-  }
-
-  resetEmailVerificationAttempts(userId: string) {
-    return this._usersRepository.resetEmailVerificationAttempts(userId);
-  }
-
-  getUserWithVerificationData(email: string) {
-    return this._usersRepository.getUserWithVerificationData(email);
-=======
   getEmailNotifications(userId: string) {
     return this._usersRepository.getEmailNotifications(userId);
   }
 
   updateEmailNotifications(userId: string, body: EmailNotificationsDto) {
     return this._usersRepository.updateEmailNotifications(userId, body);
->>>>>>> c982e30e (feat: notifcations settings)
   }
 }
