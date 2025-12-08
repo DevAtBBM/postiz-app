@@ -89,6 +89,7 @@ class CloudflareStorage implements IUploadProvider {
       ACL: 'public-read',
       Key: `${id}.${extension}`,
       Body: file.buffer,
+      ContentType: file.mimetype,
     });
 
     await this._client.send(command);
