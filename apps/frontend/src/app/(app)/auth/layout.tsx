@@ -8,6 +8,7 @@ import { isGeneralServerSide } from '@gitroom/helpers/utils/is.general.server.si
 import { LoginLeftSection } from '@gitroom/frontend/components/auth/login.left.section';
 import { Testimonial } from '@gitroom/frontend/components/auth/testimonial';
 import { TestimonialComponent } from '@gitroom/frontend/components/auth/testimonial.component';
+import { LogoTextComponent } from '@gitroom/frontend/components/ui/logo-text.component';
 const ReturnUrlComponent = loadDynamic(() => import('./return.url.component'));
 export default async function AuthLayout({
   children,
