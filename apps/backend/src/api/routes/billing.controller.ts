@@ -64,6 +64,23 @@ export class BillingController {
     };
   }
 
+  @Post('/embedded')
+  embedded(
+    @GetOrgFromRequest() org: Organization,
+    @GetUserFromRequest() user: User,
+    @Body() body: BillingSubscribeDto,
+    @Req() req: Request
+  ) {
+    const uniqueId = req?.cookies?.track;
+    return this._stripeService.embedded(
+      uniqueId,
+      org.id,
+      user.id,
+      body,
+      org.allowTrial
+    );
+  }
+
   @Post('/subscribe')
   async subscribe(
     @GetOrgFromRequest() org: Organization,
