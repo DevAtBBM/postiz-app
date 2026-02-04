@@ -35,12 +35,21 @@ const nextConfig = {
   images: {
     remotePatterns: [
       {
-        protocol: 'http',
-        hostname: '**',
+        protocol: 'https',
+        hostname: 'media.postnify.com',
       },
       {
         protocol: 'https',
-        hostname: '**',
+        hostname: 'stageapp.postnify.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'platform.postnify.com',
+      },
+      // Add other domains as needed
+      {
+        protocol: 'http',
+        hostname: 'localhost',
       },
     ],
   },
