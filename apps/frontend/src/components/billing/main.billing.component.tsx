@@ -326,15 +326,12 @@ export const MainBillingComponent: FC<{
           }
         } else {
           // This is a cancellation request
-          if (
-            subscription?.cancelAt ||
-            (await deleteDialog(
-              `Are you sure you want to cancel your subscription?
-              ${messages.join(', ')}`,
-              'Yes, cancel',
-              'Cancel Subscription'
-            )
-          ) {
+          const shouldCancel = subscription?.cancelAt || await deleteDialog(
+            `Are you sure you want to cancel your subscription? ${messages.join(', ')}`,
+            'Yes, cancel',
+            'Cancel Subscription'
+          );
+          if (shouldCancel) {
             const checkDiscount = await (
               await fetch('/billing/check-discount')
             ).json();

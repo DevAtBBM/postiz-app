@@ -143,7 +143,7 @@ export const DayView = () => {
 
   return (
     <div className="flex flex-col gap-[10px] flex-1 relative">
-      <div className="absolute start-0 top-0 w-full h-full flex flex-col overflow-auto scrollbar scrollbar-thumb-fifth scrollbar-track-newBgColor">
+      <div className="absolute start-0 top-0 w-full min-h-[400px] flex flex-col overflow-auto scrollbar scrollbar-thumb-fifth scrollbar-track-newBgColor">
         {options.map((option) => (
           <Fragment key={option[0].time}>
             <div className="text-center text-[14px] min-h-[21px]">
@@ -203,7 +203,7 @@ export const WeekView = () => {
   return (
     <div className="flex flex-col text-textColor flex-1">
       <div className="flex-1 relative">
-        <div className="grid [grid-template-columns:136px_repeat(7,_minmax(0,_1fr))] gap-[4px] rounded-[10px] absolute h-full start-0 top-0 w-full overflow-auto scrollbar scrollbar-thumb-fifth scrollbar-track-newBgColor">
+        <div className="grid [grid-template-columns:136px_repeat(7,_minmax(0,_1fr))] gap-[4px] rounded-[10px] absolute min-h-[400px] start-0 top-0 w-full overflow-auto scrollbar scrollbar-thumb-fifth scrollbar-track-newBgColor">
           <div className="z-10 bg-newTableHeader flex justify-center items-center flex-col h-[62px] rounded-[8px] sticky top-0"></div>
           {localizedDays.map((day, index) => (
             <div
@@ -302,7 +302,7 @@ export const MonthView = () => {
   return (
     <div className="flex flex-col text-textColor flex-1">
       <div className="flex-1 flex relative">
-        <div className="grid grid-cols-7 grid-rows-[62px_auto] gap-[4px] rounded-[10px] absolute start-0 top-0 overflow-auto w-full h-full scrollbar scrollbar-thumb-tableBorder scrollbar-track-secondary">
+        <div className="grid grid-cols-7 grid-rows-[62px_auto] gap-[4px] rounded-[10px] absolute start-0 top-0 overflow-auto w-full min-h-[400px] scrollbar scrollbar-thumb-tableBorder scrollbar-track-secondary">
           {localizedDays.map((day) => (
             <div
               key={day}
@@ -360,6 +360,15 @@ export const CalendarColumn: FC<{
     sets,
     signature,
   } = useCalendar();
+
+  const uniqueIntegrations = useMemo(() => {
+    const seen = new Set();
+    return integrations.filter(integration => integration && integration.id).filter(integration => {
+      if (seen.has(integration.id)) return false;
+      seen.add(integration.id);
+      return true;
+    });
+  }, [integrations]);
   const toaster = useToaster();
   const modal = useModals();
   const fetch = useFetch();
@@ -732,10 +741,10 @@ export const CalendarColumn: FC<{
                 <div
                   className={`w-full h-full rounded-[10px] py-[10px] flex-wrap hover:border hover:border-seventh flex justify-center items-center gap-[20px] opacity-30 grayscale hover:grayscale-0 hover:opacity-100`}
                 >
-                  {integrations.map((selectedIntegrations) => (
+                  {uniqueIntegrations.map((selectedIntegrations) => (
                     <div
                       className="relative"
-                      key={selectedIntegrations.identifier}
+                      key={selectedIntegrations.id}
                     >
                       <div
                         className={clsx(

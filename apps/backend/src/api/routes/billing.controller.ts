@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Param, Post, Req, Query } from '@nestjs/common';
 import { SubscriptionService } from '@gitroom/nestjs-libraries/database/prisma/subscriptions/subscription.service';
 import { PayPalService } from '@gitroom/nestjs-libraries/services/paypal.service';
+import { StripeService } from '@gitroom/nestjs-libraries/services/stripe.service';
 import { GetOrgFromRequest } from '@gitroom/nestjs-libraries/user/org.from.request';
 import { Organization, User } from '@prisma/client';
 import { BillingSubscribeDto } from '@gitroom/nestjs-libraries/dtos/billing/billing.subscribe.dto';
@@ -17,6 +18,7 @@ export class BillingController {
   constructor(
     private _subscriptionService: SubscriptionService,
     private _paypalService: PayPalService,
+    private _stripeService: StripeService,
     private _notificationService: NotificationService,
     private _nowpayments: Nowpayments
   ) {

@@ -54,7 +54,7 @@ export const NewPost = () => {
       removeLayout: true,
       askClose: true,
       classNames: {
-        modal: 'w-[100%] max-w-[1400px] bg-transparent text-textColor',
+        modal: 'w-[100%] max-w-[1400px] bg-black text-textColor',
       },
       id: 'add-edit-modal',
       children: (
@@ -94,7 +94,7 @@ export const NewPost = () => {
           strokeLinejoin="round"
         />
       </svg>
-      <div className="flex-1 text-start text-[16px] group-[.sidebar]:hidden">
+      <div className="whitespace-nowrap flex-1 text-start text-[16px] group-[.sidebar]:hidden">
         {t('create_new_post', 'Create Post')}
       </div>
     </button>

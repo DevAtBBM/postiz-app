@@ -71,7 +71,7 @@ export const Webhooks: FC = () => {
       <div className="my-[16px] mt-[16px] bg-sixth border-fifth items-center border rounded-[4px] p-[24px] flex gap-[24px]">
         <div className="flex flex-col w-full">
           {!!data?.length && (
-            <div className="grid grid-cols-[1fr,1fr,1fr,1fr] w-full gap-y-[10px]">
+            <div className="grid grid-cols-[1fr,1fr,1fr,1fr] w-full gap-[10px] text-sm sm:text-base">
               <div>{t('name', 'Name')}</div>
               <div>{t('url', 'URL')}</div>
               <div>{t('edit', 'Edit')}</div>
@@ -89,7 +89,7 @@ export const Webhooks: FC = () => {
                   </div>
                   <div className="flex flex-col justify-center">
                     <div>
-                      <Button onClick={deleteHook(p)}>
+                      <Button onClick={deleteHook(p)} className="bg-red-600 hover:bg-red-700 text-white">
                         {t('delete', 'Delete')}
                       </Button>
                     </div>

@@ -255,7 +255,6 @@ export const MenuComponent: FC<
             'data-tooltip-content': integration.name,
           }
         : {})}
-      key={integration.id}
       className={clsx(
         'flex gap-[12px] items-center bg-newBgColorInner hover:bg-boxHover group/profile transition-all rounded-e-[8px]',
         integration.refreshNeeded && 'cursor-pointer'
@@ -495,7 +494,7 @@ export const LaunchesComponent = () => {
         <div
           className={clsx(
             'flex relative flex-col',
-            collapseMenu === '1' ? 'group sidebar w-[100px]' : 'w-[260px]'
+            collapseMenu === '1' ? 'group sidebar w-[100px]' : 'w-[280px]'
           )}
         >
           <div
@@ -582,7 +581,7 @@ export const LaunchesComponent = () => {
             </div>
           </div>
         </div>
-        <div className="bg-newBgColorInner  overflow-x-auto max-w-[100%] w-[100%]">
+        <div className="bg-newBgColorInner overflow-x-auto max-w-[100%] w-[100%] min-h-screen">
           <div className="flex-1 flex-col flex p-[20px] gap-[12px]">
             <Filters />
             <div className="flex-1 flex">

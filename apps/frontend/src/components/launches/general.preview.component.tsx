@@ -49,7 +49,7 @@ export const GeneralPreviewComponent: FC<{
   });
 
   return (
-    <div className={clsx('w-full md:w-[555px] px-[16px]')}>
+    <div className={clsx('w-full px-[16px]')}>
       <div className="w-full h-full relative flex flex-col">
         {renderContent.map((value, index) => (
           <div
@@ -121,7 +121,7 @@ export const GeneralPreviewComponent: FC<{
                   className={clsx(
                     'w-full rounded-[16px] overflow-hidden mt-[12px]',
                     value?.images?.length > 3
-                      ? 'grid grid-cols-2 gap-[4px]'
+                      ? 'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-[4px]'
                       : 'flex gap-[4px]'
                   )}
                 >

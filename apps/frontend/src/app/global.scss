@@ -746,6 +746,33 @@ html[dir='rtl'] [dir='ltr'] {
   background: transparent !important;
 }
 
+
+
+.dark .overflow-y-auto::-webkit-scrollbar-track {
+  background: #1a1919;
+}
+
+.dark .overflow-y-auto::-webkit-scrollbar-thumb {
+  background-color: #6c6c6c; /* your green */
+  border-radius: 999px;
+}
+
+/* Firefox */
+.dark * {
+  scrollbar-width: thin;
+  scrollbar-color: #6c6c6c #1a1919;
+}
+
+.editor :not(.removeEditor *).bg-blue-700.text-white, .editor :not(.removeEditor *).bg-red-800.text-white{
+    color:#fff;
+}
+
+
+
+
+
+
+
 //html body iframe[title="Stripe developer tools frame"] {
 //  display: none !important;
 //  height: 0 !important;

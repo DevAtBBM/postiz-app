@@ -19,7 +19,7 @@ export const Button: FC<
     loading?: boolean;
     innerClassName?: string;
   }
-> = ({ children, loading, innerClassName, ...props }) => {
+> = ({ children, loading, innerClassName, secondary, ...props }) => {
   const ref = useRef<HTMLButtonElement | null>(null);
   const [height, setHeight] = useState<number | null>(null);
   useEffect(() => {

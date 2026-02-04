@@ -33,7 +33,7 @@ export const PublicComponent = () => {
       <div className="text-customColor18 mt-[4px]">
         {t(
           'use_postiz_api_to_integrate_with_your_tools',
-          'Use Postiz API to integrate with your tools.'
+          'Use Postnify API to integrate with your tools.'
         )}
         <br />
         <a
@@ -53,28 +53,28 @@ export const PublicComponent = () => {
         ><br />
           {t(
             'check_n8n',
-            'Check out our N8N custom node for Postiz.'
+            'Check out our N8N custom node for Postnify.'
           )}
         </a>
       </div>
-      <div className="my-[16px] mt-[16px] bg-sixth border-fifth items-center border rounded-[4px] p-[24px] flex gap-[24px]">
-        <div className="flex items-center">
+      <div className="my-[16px] mt-[16px] bg-sixth border-fifth items-center border rounded-[4px] p-[24px] flex gap-[24px] text-sm lg:text-base">
+        <div className="flex items-center max-w-[calc(100%-160px)] break-all">
           {reveal ? (
             user.publicApi
           ) : (
             <>
-              <div className="blur-sm">{user.publicApi.slice(0, -5)}</div>
-              <div>{user.publicApi.slice(-5)}</div>
+              <div className="blur-sm overflow-hidden whitespace-nowrap">{user.publicApi.slice(0, -5)}</div>
+              <div className="whitespace-nowrap">{user.publicApi.slice(-5)}</div>
             </>
           )}
         </div>
         <div>
           {!reveal ? (
-            <Button onClick={() => setReveal(true)}>
+            <Button onClick={() => setReveal(true)} className="btn-sm">
               {t('reveal', 'Reveal')}
             </Button>
           ) : (
-            <Button onClick={copyToClipboard}>
+            <Button onClick={copyToClipboard} className="btn-sm whitespace-nowrap">
               {t('copy_key', 'Copy Key')}
             </Button>
           )}
@@ -85,19 +85,19 @@ export const PublicComponent = () => {
       <div className="text-customColor18 mt-[4px]">
         {t(
           'connect_your_mcp_client_to_postiz_to_schedule_your_posts_faster',
-          'Connect Postiz MCP server to your client (Http streaming) to schedule your posts faster.'
+          'Connect Postnify MCP server to your client (Http streaming) to schedule your posts faster.'
         )}
       </div>
-      <div className="my-[16px] mt-[16px] bg-sixth border-fifth items-center border rounded-[4px] p-[24px] flex gap-[24px]">
-        <div className="flex items-center">
+      <div className="my-[16px] mt-[16px] bg-sixth border-fifth items-center border rounded-[4px] p-[24px] flex gap-[24px] text-sm lg:text-base">
+        <div className="flex items-center max-w-[calc(100%-160px)] break-all">
           {reveal2 ? (
             `${backendUrl}/mcp/` + user.publicApi
           ) : (
             <>
-              <div className="blur-sm">
+              <div className="blur-sm overflow-hidden whitespace-nowrap">
                 {(`${backendUrl}/mcp/` + user.publicApi).slice(0, -5)}
               </div>
-              <div>
+              <div className="whitespace-nowrap">
                 {(`${backendUrl}/mcp/` + user.publicApi).slice(-5)}
               </div>
             </>
@@ -105,11 +105,11 @@ export const PublicComponent = () => {
         </div>
         <div>
           {!reveal2 ? (
-            <Button onClick={() => setReveal2(true)}>
+            <Button onClick={() => setReveal2(true)} className="btn-sm">
               {t('reveal', 'Reveal')}
             </Button>
           ) : (
-            <Button onClick={copyToClipboard2}>
+            <Button onClick={copyToClipboard2} className="btn-sm whitespace-nowrap">
               {t('copy_key', 'Copy Key')}
             </Button>
           )}

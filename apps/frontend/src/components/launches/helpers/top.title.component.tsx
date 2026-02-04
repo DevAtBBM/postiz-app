@@ -34,7 +34,7 @@ export const TopTitle: FC<{
         props.extraClass ? props.extraClass : 'h-[57px]'
       )}
     >
-      <div className="px-[24px] flex flex-1 items-center">
+      <div className="px-[24px] gap-[10px] sm:flex flex-1 items-center">
         {!removeTitle && (
           <div className={clsx('flex-1', props.titleSize)}>
             {translatedTitle}

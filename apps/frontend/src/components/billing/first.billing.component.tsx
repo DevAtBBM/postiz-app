@@ -117,7 +117,7 @@ export const FirstBillingComponent = () => {
             {'\n'}
             {t(
               'billing_postiz_grow_social',
-              'Postiz To Grow Their Social Presence'
+              'Postnify To Grow Their Social Presence'
             )}
           </div>
 

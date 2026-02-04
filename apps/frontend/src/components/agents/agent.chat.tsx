@@ -65,7 +65,7 @@ export const AgentChat: FC = () => {
             className="w-full h-full"
             labels={{
               title: 'Your Assistant',
-              initial: `Hello, I am your Postiz agent 🙌🏻.
+              initial: `Hello, I am your Posnify agent 🙌🏻.
               
 I can schedule a post or multiple posts to multiple channels and generate pictures and videos.
 

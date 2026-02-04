@@ -39,6 +39,7 @@ export class LoadToolsService {
     const tools = await this.loadTools();
     return new Agent({
       name: 'postiz',
+      description: 'Manages and schedules social media posts for users',
       instructions: () => {
         return `
       Global information:

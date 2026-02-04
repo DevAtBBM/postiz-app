@@ -688,7 +688,7 @@ export class PostsService {
         });
       }
 
-      Sentry.metrics.count('post_created', 1);
+      // Sentry.metrics.count('post_created', 1);
       postList.push({
         postId: posts[0].id,
         integration: post.integration.id,
@@ -978,7 +978,7 @@ export class PostsService {
       orgId,
       getNotificationsForOrgSince.length === 1
         ? subject
-        : '[Postiz] Your latest notifications',
+        : '[Postnify] Your latest notifications',
       message,
       types.length > 0 ? types : ['success'] // Default to success if no types tracked
     );

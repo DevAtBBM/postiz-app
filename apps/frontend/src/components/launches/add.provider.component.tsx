@@ -121,7 +121,7 @@ export const AddProviderButton: FC<{
           />
         </svg>
       </div>
-      <div className="text-start text-[16px] group-[.sidebar]:hidden">
+      <div className="text-start text-[16px] group-[.sidebar]:hidden 1">
         {t('add_channel', 'Add Channel')}
       </div>
     </button>

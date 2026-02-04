@@ -138,7 +138,7 @@ export const Component: FC<{
         <div className="relative flex-1">
           <div className="absolute top-0 left-0 min-w-full min-h-full">
             <div
-              className="mx-auto py-[48px]"
+              className={`mx-auto py-[15px] sm:py-[25px] md:py-[48px]`}
               {...(modal.size && { style: { width: modal.size } })}
             >
               {typeof modal.children === 'function'

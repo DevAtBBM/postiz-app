@@ -225,6 +225,7 @@ module.exports = {
         },
       }),
       screens: {
+        xl: '1320px',
         custom: {
           raw: '(max-height: 800px)',
         },

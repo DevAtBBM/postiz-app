@@ -193,21 +193,21 @@ export class UsersController {
     @Body('id') id: string,
     @Res({ passthrough: true }) response: Response
   ) {
-    response.cookie('showorg', id, {
-      domain: getCookieUrlFromDomain(process.env.FRONTEND_URL!),
-      ...(!process.env.NOT_SECURED
-        ? {
-            secure: true,
-            httpOnly: true,
-            sameSite: 'none',
-          }
-        : {}),
-      expires: new Date(Date.now() + 1000 * 60 * 60 * 24 * 365),
-    });
+    // response.cookie('showorg', id, {
+    //   domain: getCookieUrlFromDomain(process.env.FRONTEND_URL!),
+    //   ...(!process.env.NOT_SECURED
+    //     ? {
+    //         secure: true,
+    //         httpOnly: true,
+    //         sameSite: 'none',
+    //       }
+    //     : {}),
+    //   expires: new Date(Date.now() + 1000 * 60 * 60 * 24 * 365),
+    // });
 
-    if (process.env.NOT_SECURED) {
-      response.header('showorg', id);
-    }
+    // if (process.env.NOT_SECURED) {
+    //   response.header('showorg', id);
+    // }
 
     response.status(200).send();
   }
@@ -234,64 +234,66 @@ export class UsersController {
       { name: 'showorg', domain: cookieDomain },
       { name: 'impersonate', domain: cookieDomain }
     ].forEach(cookie => {
-      response.cookie(cookie.name, '', {
-        domain: cookie.domain,
-        ...secureFlags,
-        maxAge: -1,
-        expires: new Date(0),
-      });
-    response.header('logout', 'true');
-    response.cookie('auth', '', {
-      domain: getCookieUrlFromDomain(process.env.FRONTEND_URL!),
-      ...(!process.env.NOT_SECURED
-        ? {
-            secure: true,
-            httpOnly: true,
-            sameSite: 'none',
-          }
-        : {}),
-      maxAge: -1,
-      expires: new Date(0),
-    });
-
-    // Also clear cookies on the root domain to handle historical inconsistencies
-    // Extract root domain from hostname (e.g., stageapp.postnify.com -> .postnify.com)
-    if (cookieDomain.includes('.')) {
-      const domainParts = cookieDomain.split('.');
-      if (domainParts.length > 1) {
-        const rootDomain = '.' + domainParts.slice(-2).join('.');
-
-        [
-          { name: 'auth', domain: rootDomain },
-          { name: 'showorg', domain: rootDomain },
-          { name: 'impersonate', domain: rootDomain }
-        ].forEach(cookie => {
-          response.cookie(cookie.name, '', {
-            domain: cookie.domain,
-            ...secureFlags,
-            maxAge: -1,
-            expires: new Date(0),
-          });
+        response.cookie(cookie.name, '', {
+          domain: cookie.domain,
+          ...secureFlags,
+          maxAge: -1,
+          expires: new Date(0),
         });
-      }
-    }
-
-    [
-      { name: 'auth', domain: "stageapp.postnify.com" },
-      { name: 'showorg', domain: "stageapp.postnify.com" },
-      { name: 'impersonate', domain: "stageapp.postnify.com" }
-    ].forEach(cookie => {
-      response.cookie(cookie.name, '', {
-        domain: cookie.domain,
-        ...secureFlags,
+      });
+      response.header('logout', 'true');
+      response.cookie('auth', '', {
+        domain: getCookieUrlFromDomain(process.env.FRONTEND_URL!),
+        ...(!process.env.NOT_SECURED
+          ? {
+              secure: true,
+              httpOnly: true,
+              sameSite: 'none',
+            }
+          : {}),
         maxAge: -1,
         expires: new Date(0),
       });
-    });
-    removeAuth(response);
-    // Cookies cleared successfully
-    response.header('logout', 'true');
-    response.status(200).send();
+
+      // Also clear cookies on the root domain to handle historical inconsistencies
+      // Extract root domain from hostname (e.g., stageapp.postnify.com -> .postnify.com)
+      if (cookieDomain.includes('.')) {
+        const domainParts = cookieDomain.split('.');
+        if (domainParts.length > 1) {
+          const rootDomain = '.' + domainParts.slice(-2).join('.');
+
+          [
+            { name: 'auth', domain: rootDomain },
+            { name: 'showorg', domain: rootDomain },
+            { name: 'impersonate', domain: rootDomain }
+          ].forEach(cookie => {
+            response.cookie(cookie.name, '', {
+              domain: cookie.domain,
+              ...secureFlags,
+              maxAge: -1,
+              expires: new Date(0),
+            });
+          });
+        }
+      }
+
+      [
+        { name: 'auth', domain: "stageapp.postnify.com" },
+        { name: 'showorg', domain: "stageapp.postnify.com" },
+        { name: 'impersonate', domain: "stageapp.postnify.com" }
+      ].forEach(cookie => {
+        response.cookie(cookie.name, '', {
+          domain: cookie.domain,
+          ...secureFlags,
+          maxAge: -1,
+          expires: new Date(0),
+        });
+      });
+      removeAuth(response);
+      // Cookies cleared successfully
+      response.header('logout', 'true');
+      response.status(200).send();
+    
   }
 
   @Post('/t')
@@ -301,8 +303,7 @@ export class UsersController {
     @GetUserFromRequest() user: User,
     @RealIP() ip: string,
     @UserAgent() userAgent: string,
-    @Body()
-    body: { tt: TrackEnum; fbclid: string; additional: Record<string, any> }
+    @Body() body: any
   ) {
     const uniqueId = req?.cookies?.track || makeId(10);
     const fbclid = req?.cookies?.fbclid || body.fbclid;
@@ -315,7 +316,8 @@ export class UsersController {
       fbclid,
       user
     );
-    if (!req.cookies.track) {
+
+    if (!req.cookies.track){
       res.cookie('track', uniqueId, {
         domain: getCookieUrlFromDomain(process.env.FRONTEND_URL!),
         ...(!process.env.NOT_SECURED
@@ -334,3 +336,4 @@ export class UsersController {
     });
   }
 }
+

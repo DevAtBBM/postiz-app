@@ -1,14 +1,14 @@
 #!/bin/bash
 
-# Get the list of commits to cherry-pick in order, starting from the 178th (after manually applying 177)
-commits=$(git rev-list --reverse 8559feed..upstream/main | tail -n +178)
+# Get the list of commits to cherry-pick in order, starting from the 311th (after picking 310)
+commits=$(git rev-list --reverse 8559feed..upstream/main | tail -n +311)
 
 # Initialize counter
-count=178
+count=311
 total=$(echo "$commits" | wc -l)
-total=$((total + 178))  # Since we start from 178, total is 314 - 178 = 136
+total=$((total + 311))  # Since we start from 311, total is 314 - 311 = 3
 
-echo "Starting cherry-pick from commit 178 of $total commits..."
+echo "Starting cherry-pick from commit 311 of $total commits..."
 
 for commit in $commits; do
     echo "Checking commit $count/$total: $commit"

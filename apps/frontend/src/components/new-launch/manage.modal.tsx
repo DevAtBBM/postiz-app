@@ -263,7 +263,7 @@ export const ManageModal: FC<AddEditModalProps> = (props) => {
           classNames: {
             modal: 'w-[100%] bg-transparent text-textColor',
           },
-          size: '100%',
+          size: '80%',
           withCloseButton: false,
           closeOnEscape: true,
           closeOnClickOutside: true,
@@ -314,18 +314,18 @@ export const ManageModal: FC<AddEditModalProps> = (props) => {
     <>
       <div
         className={clsx(
-          'flex flex-col md:flex-row bg-newBgLineColor gap-[1px] rounded-[24px] trz'
+          'flex flex-col xl:flex-row bg-newBgLineColor gap-[1px] rounded-[24px] trz'
         )}
       >
         <div
           className={clsx(
-            'flex flex-1 flex-col gap-[16px] transition-all duration-700 whitespace-nowrap bg-newBgColorInner rounded-s-[24px]'
+            'flex flex-1 flex-col gap-[16px] transition-all duration-700 whitespace-nowrap bg-newBgColorInner rounded-t-[10px] rounded-b-[0px] xl:rounded-bl-[24px] xl:rounded-tr-[0] xl:rounded-br-[0]'
           )}
         >
           <div className="relative flex gap-[20px] flex-col flex-1 rounded-[4px] p-[24px] pt-0">
             <TopTitle
-              extraClass="h-[75px]"
-              titleSize="text-[24px]"
+              extraClass="sm:h-[75px]"
+              titleSize="text-[18px] sm:text-[20px] md:text-[22px] lg:text-[24px]"
               title={
                 dummy
                   ? 'Generate an API request'
@@ -334,12 +334,26 @@ export const ManageModal: FC<AddEditModalProps> = (props) => {
                   : t('create_new_post', 'Create Post')
               }
             >
-              <div className="flex items-center">
+              <div className="sm:flex items-center py-2 py-0">
                 {!dummy && (
                   <RepeatComponent repeat={repeater} onChange={setRepeater} />
                 )}
-                <DatePicker onChange={setDate} date={date} />
+                <DatePicker className="mt-0 sm:mt-0" onChange={setDate} date={date} />
               </div>
+              <svg
+                onClick={askClose}
+                width="10"
+                height="11"
+                viewBox="0 0 10 11"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                className="cursor-pointer d-block xl:hidden"
+              >
+                <path
+                  d="M9.85403 9.64628C9.90048 9.69274 9.93733 9.74789 9.96247 9.80859C9.98762 9.86928 10.0006 9.93434 10.0006 10C10.0006 10.0657 9.98762 10.1308 9.96247 10.1915C9.93733 10.2522 9.90048 10.3073 9.85403 10.3538C9.80757 10.4002 9.75242 10.4371 9.69173 10.4622C9.63103 10.4874 9.56598 10.5003 9.50028 10.5003C9.43458 10.5003 9.36953 10.4874 9.30883 10.4622C9.24813 10.4371 9.19298 10.4002 9.14653 10.3538L5.00028 6.20691L0.854028 10.3538C0.760208 10.4476 0.63296 10.5003 0.500278 10.5003C0.367596 10.5003 0.240348 10.4476 0.146528 10.3538C0.0527077 10.26 2.61548e-09 10.1327 0 10C-2.61548e-09 9.86735 0.0527077 9.7401 0.146528 9.64628L4.2934 5.50003L0.146528 1.35378C0.0527077 1.25996 0 1.13272 0 1.00003C0 0.867352 0.0527077 0.740104 0.146528 0.646284C0.240348 0.552464 0.367596 0.499756 0.500278 0.499756C0.63296 0.499756 0.760208 0.552464 0.854028 0.646284L5.00028 4.79316L9.14653 0.646284C9.24035 0.552464 9.3676 0.499756 9.50028 0.499756C9.63296 0.499756 9.76021 0.552464 9.85403 0.646284C9.94785 0.740104 10.0006 0.867352 10.0006 1.00003C10.0006 1.13272 9.94785 1.25996 9.85403 1.35378L5.70715 5.50003L9.85403 9.64628Z"
+                  fill="currentColor"
+                />
+              </svg>
             </TopTitle>
 
             <PicksSocialsComponent toolTip={true} />
@@ -358,11 +372,11 @@ export const ManageModal: FC<AddEditModalProps> = (props) => {
                 id="add-edit-post-dialog-buttons"
                 className="flex flex-row flex-wrap w-full h-full gap-[10px] justify-end items-center"
               >
-                <div className="flex justify-center items-center gap-[5px] h-full">
+                <div className="flex-wrap flex justify-center items-center gap-[5px] h-full mb-4">
                   {!!existingData.integration && (
                     <Button
                       onClick={deletePost}
-                      className="rounded-[4px] border-2 border-red-400 text-red-400"
+                      className="rounded-[4px]  bg-red-400 text-white my-1 text-sm sm:text-base"
                       secondary={true}
                       disabled={loading || locked}
                     >
@@ -373,7 +387,7 @@ export const ManageModal: FC<AddEditModalProps> = (props) => {
                   {!addEditSets && !dummy && (
                     <Button
                       onClick={schedule('draft')}
-                      className="rounded-[4px] border-2 border-customColor21"
+                      className="rounded-[4px] text-sm sm:text-base  my-1"
                       secondary={true}
                       disabled={
                         selectedIntegrations.length === 0 || loading || locked
@@ -384,8 +398,8 @@ export const ManageModal: FC<AddEditModalProps> = (props) => {
                   )}
 
                   {addEditSets && (
-                    <Button
-                      className="rounded-[4px] relative group"
+                    <Button 
+                      className="rounded-[4px] relative group  my-1 text-sm sm:text-base"
                       disabled={
                         selectedIntegrations.length === 0 || loading || locked
                       }
@@ -396,14 +410,14 @@ export const ManageModal: FC<AddEditModalProps> = (props) => {
                   )}
                   {!addEditSets && (
                     <Button
-                      className="rounded-[4px] relative group"
+                      className="rounded-[4px] bg-purple-500 text-white relative group  my-1"
                       disabled={
                         selectedIntegrations.length === 0 || loading || locked
                       }
                     >
                       <div className="flex justify-center items-center gap-[5px] h-full">
                         <div
-                          className="h-full flex items-center text-white"
+                          className="h-full flex items-center text-white text-sm sm:text-base"
                           onClick={schedule('schedule')}
                         >
                           {selectedIntegrations.length === 0
@@ -436,7 +450,7 @@ export const ManageModal: FC<AddEditModalProps> = (props) => {
                             <div
                               onClick={schedule('now')}
                               className={clsx(
-                                'hidden group-hover:flex hover:flex flex-col justify-center absolute start-0 top-[100%] w-full h-[40px] bg-customColor22 border border-tableBorder',
+                                'hidden group-hover:flex hover:flex flex-col justify-center absolute start-0 top-[100%] w-full h-[40px] bg-[#333] text-white text-sm sm:text-base',
                                 (locked || loading) &&
                                   'cursor-not-allowed pointer-events-none opacity-50'
                               )}
@@ -455,7 +469,7 @@ export const ManageModal: FC<AddEditModalProps> = (props) => {
         </div>
         <div
           className={clsx(
-            'px-[24px] flex-grow rounded-e-[24px] w-[650px] max-w-[650px] min-w-[650px] flex gap-[20px] flex-col rounded-[4px] bg-newBgColorInner border-newBgLineColor flex-1 transition-all duration-700'
+            'px-[24px] flex-grow  flex gap-[20px] flex-col rounded-t-[0px] rounded-b-[10px] xl:rounded-b-[0] xl:rounded-tr-[24px] xl:rounded-br-[24px] bg-newBgColorInner border-newBgLineColor flex-1 transition-all duration-700'
           )}
         >
           <div>
@@ -485,7 +499,8 @@ export const ManageModal: FC<AddEditModalProps> = (props) => {
                 viewBox="0 0 10 11"
                 fill="none"
                 xmlns="http://www.w3.org/2000/svg"
-                className="cursor-pointer"
+                className="cursor-pointer hidden xl:block"
+
               >
                 <path
                   d="M9.85403 9.64628C9.90048 9.69274 9.93733 9.74789 9.96247 9.80859C9.98762 9.86928 10.0006 9.93434 10.0006 10C10.0006 10.0657 9.98762 10.1308 9.96247 10.1915C9.93733 10.2522 9.90048 10.3073 9.85403 10.3538C9.80757 10.4002 9.75242 10.4371 9.69173 10.4622C9.63103 10.4874 9.56598 10.5003 9.50028 10.5003C9.43458 10.5003 9.36953 10.4874 9.30883 10.4622C9.24813 10.4371 9.19298 10.4002 9.14653 10.3538L5.00028 6.20691L0.854028 10.3538C0.760208 10.4476 0.63296 10.5003 0.500278 10.5003C0.367596 10.5003 0.240348 10.4476 0.146528 10.3538C0.0527077 10.26 2.61548e-09 10.1327 0 10C-2.61548e-09 9.86735 0.0527077 9.7401 0.146528 9.64628L4.2934 5.50003L0.146528 1.35378C0.0527077 1.25996 0 1.13272 0 1.00003C0 0.867352 0.0527077 0.740104 0.146528 0.646284C0.240348 0.552464 0.367596 0.499756 0.500278 0.499756C0.63296 0.499756 0.760208 0.552464 0.854028 0.646284L5.00028 4.79316L9.14653 0.646284C9.24035 0.552464 9.3676 0.499756 9.50028 0.499756C9.63296 0.499756 9.76021 0.552464 9.85403 0.646284C9.94785 0.740104 10.0006 0.867352 10.0006 1.00003C10.0006 1.13272 9.94785 1.25996 9.85403 1.35378L5.70715 5.50003L9.85403 9.64628Z"

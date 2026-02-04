@@ -64,4 +64,16 @@ export class UsersService {
   updateEmailNotifications(userId: string, body: EmailNotificationsDto) {
     return this._usersRepository.updateEmailNotifications(userId, body);
   }
+
+  getUserWithVerificationData(email: string) {
+    return this._usersRepository.getUserWithVerificationData(email);
+  }
+
+  resetEmailVerificationAttempts(userId: string) {
+    return this._usersRepository.resetEmailVerificationAttempts(userId);
+  }
+
+  incrementEmailVerificationAttempts(userId: string) {
+    return this._usersRepository.incrementEmailVerificationAttempts(userId);
+  }
 }

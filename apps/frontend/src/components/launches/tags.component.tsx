@@ -164,7 +164,7 @@ export const TagsComponent: FC<{
     <>
       {showModal && <ShowModal {...showModal} />}
       <div className="flex-1 flex tags-top">
-        <ReactTags
+        <ReactTags 
           placeholderText={t('add_a_tag', 'Add a tag')}
           suggestions={suggestionsArray}
           selected={tagValue}
@@ -178,22 +178,41 @@ export const TagsComponent: FC<{
             );
             return (
               <div
-                className={`min-w-[50px] float-left ms-[4px] p-[3px] rounded-sm relative`}
+                className={`min-w-[50px] float-left mr-[10px] p-[3px] rounded-sm relative justify-center`}
                 style={{
                   backgroundColor: findTag?.color,
                 }}
               >
                 <div
-                  className="absolute -top-[5px] start-[10px] text-[12px] text-red-600 bg-white px-[3px] rounded-full"
+                  className="absolute -top-[5px] start-[15px] text-[12px] bg-forth w-[15px] h-[15px] rounded-full cursor-pointer" title="Edit"
                   onClick={edit(findTag)}
                 >
-                  {t('edit', 'Edit')}
+                  {/*{t('edit', 'Edit')}*/}
+
+                  <svg width="15" height="15" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path fill-rule="evenodd" clip-rule="evenodd" d="M3.64872 9.84797L3.02266 11.5174C2.99862 11.5817 2.99358 11.6515 3.00815 11.7185C3.02271 11.7856 3.05626 11.847 3.10479 11.8955C3.15333 11.944 3.21479 11.9774 3.28184 11.9919C3.34889 12.0064 3.41869 12.0013 3.48292 11.9772L5.15193 11.3512C5.34296 11.2796 5.51647 11.168 5.66078 11.0238L10.4954 6.18934C10.4954 6.18934 10.3267 5.68383 9.82165 5.17832C9.31661 4.67328 8.81062 4.50462 8.81062 4.50462L3.97605 9.33912C3.83188 9.48344 3.72027 9.65694 3.64872 9.84797ZM9.4848 3.83045L10.1437 3.17152C10.2619 3.05336 10.4196 2.97809 10.5845 3.00572C10.8165 3.04384 11.1714 3.15914 11.5059 3.49408C11.8409 3.82902 11.9562 4.1835 11.9943 4.41553C12.0219 4.58038 11.9466 4.73808 11.8285 4.85624L11.1691 5.51516C11.1691 5.51516 11.0009 5.01013 10.4954 4.5051C9.99032 3.99911 9.4848 3.83045 9.4848 3.83045Z" fill="white"/>
+                  </svg>
+
                 </div>
                 <div
-                  className="absolute -top-[5px] -start-[5px] text-[12px] text-red-600 bg-white px-[3px] rounded-full"
+                  className="absolute -top-[5px] -start-[3px]  text-[12px] bg-red-800 text-white w-[15px] h-[15px] rounded-full cursor-pointer" title="Close"
                   onClick={() => onDelete(findIndex)}
                 >
-                  X
+                  <svg
+                    width="15"
+                    height="15"
+                    viewBox="0 0 15 15"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      d="M11.25 11.25L7.5 7.5M7.5 7.5L3.75 3.75M7.5 7.5L11.25 3.75M7.5 7.5L3.75 11.25"
+                      stroke="white"
+                      strokeWidth="1.3"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
                 </div>
                 <div className="text-white mix-blend-difference">
                   {tag.tag.label}
