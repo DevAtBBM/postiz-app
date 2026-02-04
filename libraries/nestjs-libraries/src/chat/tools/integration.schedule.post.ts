@@ -100,22 +100,38 @@ If the tools return errors, you would need to rerun it with the right parameters
       execute: async ({ runtimeContext, context }) => {
         console.log(JSON.stringify(context, null, 2));
         // @ts-ignore
-        const organizationId = runtimeContext.get('organization') as string;
+        const organizationId = JSON.parse(
+          runtimeContext.get('organization') as string
+        ).id;
         const finalOutput = [];
 
         const integrations = {} as Record<string, Integration>;
         for (const platform of context.socialPost) {
-          integrations[platform.integrationId] =
+          const integration =
             await this._integrationService.getIntegrationById(
               organizationId,
               platform.integrationId
             );
 
-          const { dto } = socialIntegrationList.find(
-            (p) =>
-              p.identifier ===
-              integrations[platform.integrationId].providerIdentifier
-          )!;
+          if (!integration) {
+            return {
+              errors: `Integration with ID "${platform.integrationId}" not found. Please check if the integration exists and is connected to your account.`,
+            };
+          }
+
+          integrations[platform.integrationId] = integration;
+
+          const socialIntegration = socialIntegrationList.find(
+            (p) => p.identifier === integration.providerIdentifier
+          );
+
+          if (!socialIntegration) {
+            return {
+              errors: `Provider "${integration.providerIdentifier}" is not supported or not configured properly.`,
+            };
+          }
+
+          const { dto } = socialIntegration;
 
           if (dto) {
             const newDTO = new dto();

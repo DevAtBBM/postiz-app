@@ -44,7 +44,9 @@ export class IntegrationTriggerTool implements AgentToolInterface {
       execute: async ({ runtimeContext, context }) => {
         console.log('triggerTool', context);
         // @ts-ignore
-        const organizationId = runtimeContext.get('organization') as string;
+        const organizationId = JSON.parse(
+          runtimeContext.get('organization') as string
+        ).id;
 
         const getIntegration =
           await this._integrationService.getIntegrationById(
