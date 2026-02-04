@@ -47,22 +47,30 @@ export class InstagramStandaloneProvider
   }
 
   async refreshToken(refresh_token: string): Promise<AuthTokenDetails> {
-    const { access_token } = await (
-      await fetch(
-        `https://graph.instagram.com/refresh_access_token?grant_type=ig_refresh_token&access_token=${refresh_token}`
-      )
-    ).json();
+    const refreshResponse = await fetch(
+      `https://graph.instagram.com/refresh_access_token?grant_type=ig_refresh_token&access_token=${refresh_token}`
+    );
+
+    const refreshData = await refreshResponse.json();
+
+    if (!refreshData.access_token) {
+      throw new Error(`Instagram refresh token failed: ${JSON.stringify(refreshData)}`);
+    }
+
+    const { access_token } = refreshData;
+
+    const userResponse = await fetch(
+      `https://graph.instagram.com/v21.0/me?fields=user_id,username,name,profile_picture_url&access_token=${access_token}`
+    );
+
+    const userData = await userResponse.json();
 
     const {
       user_id,
       name,
       username,
       profile_picture_url = '',
-    } = await (
-      await fetch(
-        `https://graph.instagram.com/v21.0/me?fields=user_id,username,name,profile_picture_url&access_token=${access_token}`
-      )
-    ).json();
+    } = userData;
 
     return {
       id: user_id,

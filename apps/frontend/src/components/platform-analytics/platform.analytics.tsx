@@ -41,16 +41,27 @@ export const PlatformAnalytics = () => {
   const [collapseMenu, setCollapseMenu] = useCookie('collapseMenu', '0');
   const toaster = useToaster();
   const load = useCallback(async () => {
-    const int = (
-      await (await fetch('/integrations/list')).json()
-    ).integrations.filter((f: any) => {
-      if (f.identifier === 'x' && disableXAnalytics) {
-        return false;
+    try {
+      const response = await fetch('/integrations/list');
+      const data = await response.json();
+
+      if (!data || !Array.isArray(data.integrations)) {
+        console.error('Invalid integrations response:', data);
+        return [];
       }
-      return true;
-    });
-    return int.filter((f: any) => allowedIntegrations.includes(f.identifier));
-  }, []);
+
+      const int = data.integrations.filter((f: any) => {
+        if (f.identifier === 'x' && disableXAnalytics) {
+          return false;
+        }
+        return true;
+      });
+      return int.filter((f: any) => allowedIntegrations.includes(f.identifier));
+    } catch (error) {
+      console.error('Failed to load integrations:', error);
+      return [];
+    }
+  }, [disableXAnalytics]);
   const { data, isLoading } = useSWR('analytics-list', load, {
     revalidateOnFocus: false,
     revalidateOnReconnect: false,
@@ -61,6 +72,9 @@ export const PlatformAnalytics = () => {
     fallbackData: [],
   });
   const sortedIntegrations = useMemo(() => {
+    if (!Array.isArray(data)) {
+      return [];
+    }
     return orderBy(
       data,
       ['type', 'disabled', 'identifier'],
