@@ -508,6 +508,7 @@ export const MediaBox: FC<{
                         className="w-full h-full object-cover"
                         src={mediaDirectory.set(media.path)}
                         alt="media"
+                        unoptimized={media.path.startsWith('http')}
                       />
                     )}
                   </div>
