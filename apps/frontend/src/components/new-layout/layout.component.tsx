@@ -1,6 +1,6 @@
 'use client';
 
-import React, { ReactNode, useCallback } from 'react';
+import React, { ReactNode, useCallback, useState } from 'react';
 import { Logo } from '@gitroom/frontend/components/new-layout/logo';
 import { Plus_Jakarta_Sans } from 'next/font/google';
 const ModeComponent = dynamic(
@@ -65,6 +65,16 @@ export const LayoutComponent = ({ children }: { children: ReactNode }) => {
     refreshWhenHidden: false,
   });
 
+  const [billingSkipped, setBillingSkipped] = useState(
+    typeof window !== 'undefined' &&
+      localStorage.getItem('billingSkipped') === 'true'
+  );
+
+  const handleBillingSkip = useCallback(() => {
+    localStorage.setItem('billingSkipped', 'true');
+    setBillingSkipped(true);
+  }, []);
+
   if (!user) return null;
 
   return (
@@ -92,8 +102,8 @@ export const LayoutComponent = ({ children }: { children: ReactNode }) => {
               )}
             >
               <div>{user?.admin ? <Impersonate /> : <div />}</div>
-              {user.tier === 'FREE' && isGeneral && billingEnabled ? (
-                <FirstBillingComponent />
+              {user.tier === 'FREE' && isGeneral && billingEnabled && !billingSkipped ? (
+                <FirstBillingComponent onSkip={handleBillingSkip} />
               ) : (
                 <div className="flex-1 flex gap-[8px]">
                   <Support />

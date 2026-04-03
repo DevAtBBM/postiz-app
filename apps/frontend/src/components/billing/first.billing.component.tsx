@@ -42,7 +42,7 @@ const EmbeddedBilling = dynamic(
   }
 );
 
-export const FirstBillingComponent = () => {
+export const FirstBillingComponent = ({ onSkip }: { onSkip?: () => void }) => {
   const { stripeClient } = useVariables();
   const user = useUser();
   const [stripe, setStripe] = useState<null | Promise<Stripe>>(null);
@@ -92,7 +92,15 @@ export const FirstBillingComponent = () => {
         <div className="flex-1 flex items-center text-textColor">
           <LogoTextComponent />
         </div>
-        <div className="flex items-center">
+        <div className="flex items-center gap-[20px]">
+          {onSkip && (
+            <button
+              onClick={onSkip}
+              className="text-sm text-textItemBlur hover:text-newTextColor underline underline-offset-2 transition-colors"
+            >
+              {t('billing_skip_free_plan', 'Continue with Free Plan')}
+            </button>
+          )}
           <div className="flex gap-[20px] text-textItemBlur">
             <OrganizationSelector />
             <div className="hover:text-newTextColor">
