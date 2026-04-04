@@ -356,6 +356,8 @@ export const AddProviderComponent: FC<{
     toolTip?: string;
     isExternal: boolean;
     isWeb3: boolean;
+    disabled?: boolean;
+    disabledMessage?: string;
     customFields?: Array<{
       key: string;
       label: string;
@@ -529,23 +531,35 @@ export const AddProviderComponent: FC<{
           {social.map((item) => (
             <div
               key={item.identifier}
-              onClick={getSocialLink(
-                item.identifier,
-                item.isExternal,
-                item.isWeb3,
-                item.customFields
-              )}
-              {...(!!item.toolTip
+              onClick={
+                item.disabled
+                  ? undefined
+                  : getSocialLink(
+                      item.identifier,
+                      item.isExternal,
+                      item.isWeb3,
+                      item.customFields
+                    )
+              }
+              {...(!!item.toolTip && !item.disabled
                 ? {
                     'data-tooltip-id': 'tooltip',
                     'data-tooltip-content': item.toolTip,
                   }
                 : {})}
-              className={
-                'w-full h-[100px] text-[14px] p-[10px] rounded-[8px] bg-newTableHeader text-textColor relative justify-center items-center flex flex-col gap-[10px] cursor-pointer'
-              }
+              className={clsx(
+                'w-full h-[100px] text-[14px] p-[10px] rounded-[8px] bg-newTableHeader text-textColor relative justify-center items-center flex flex-col gap-[10px]',
+                item.disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+              )}
             >
-              <div>
+              {item.disabled && (
+                <div className="absolute top-[6px] start-0 end-0 flex justify-center">
+                  <span className="bg-yellow-500/20 text-yellow-400 text-[9px] font-semibold px-[6px] py-[2px] rounded-full leading-tight">
+                    Coming Soon
+                  </span>
+                </div>
+              )}
+              <div className={clsx(item.disabled && 'grayscale')}>
                 {item.identifier === 'youtube' ? (
                   <img src={`/icons/platforms/youtube.svg`} />
                 ) : (
@@ -557,7 +571,7 @@ export const AddProviderComponent: FC<{
               </div>
               <div className="whitespace-pre-wrap text-center">
                 {item.name}
-                {!!item.toolTip && (
+                {!!item.toolTip && !item.disabled && (
                   <svg
                     width="15"
                     height="15"

@@ -73,6 +73,8 @@ export class IntegrationManager {
           editor: p.editor,
           isExternal: !!p.externalUrl,
           isWeb3: !!p.isWeb3,
+          disabled: !!p.disabled,
+          disabledMessage: p.disabledMessage,
           ...(p.customFields ? { customFields: await p.customFields() } : {}),
         }))
       ),
@@ -150,7 +152,9 @@ export class IntegrationManager {
   }
 
   getAllowedSocialsIntegrations() {
-    return socialIntegrationList.map((p) => p.identifier);
+    return socialIntegrationList
+      .filter((p) => !p.disabled)
+      .map((p) => p.identifier);
   }
   getSocialIntegration(integration: string): SocialProvider {
     return socialIntegrationList.find((i) => i.identifier === integration)!;

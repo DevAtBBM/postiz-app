@@ -26,6 +26,8 @@ import { Rules } from '@gitroom/nestjs-libraries/chat/rules.description.decorato
 export class XProvider extends SocialAbstract implements SocialProvider {
   identifier = 'x';
   name = 'X';
+  disabled = true;
+  disabledMessage = 'X (Twitter) integration is temporarily inactive and will be available very soon.';
   isBetweenSteps = false;
   scopes = [] as string[];
   override maxConcurrentJob = 1; // X has strict rate limits (300 posts per 3 hours)
