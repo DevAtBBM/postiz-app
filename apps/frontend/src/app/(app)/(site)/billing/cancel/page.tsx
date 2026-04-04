@@ -2,12 +2,14 @@
 
 import React, { FC } from 'react';
 import { Button } from '@gitroom/react/form/button';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useT } from '@gitroom/react/translation/get.transation.service.client';
 
 const CancelComponent: FC = () => {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const t = useT();
+  const provider = searchParams.get('provider') || 'paypal';
 
   const handleGoBack = () => {
     router.push('/billing');
@@ -33,10 +35,10 @@ const CancelComponent: FC = () => {
         </p>
 
         {/* Explanation */}
-        <div className="bg-your-50 rounded-lg p-4 mb-6 text-left">
+        <div className="bg-gray-50 rounded-lg p-4 mb-6 text-left">
           <h3 className="font-medium text-gray-900 mb-2">What does this mean:</h3>
           <ul className="text-sm text-gray-600 space-y-1">
-            <li>• Your PayPal account was not charged</li>
+            <li>• Your {provider === 'razorpay' ? 'Razorpay' : 'PayPal'} account was not charged</li>
             <li>• No subscription was created</li>
             <li>• You can try again whenever you want</li>
             <li>• Your account remains unchanged</li>

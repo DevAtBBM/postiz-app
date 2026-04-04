@@ -366,6 +366,52 @@ export class SubscriptionRepository {
     return null;
   }
 
+  // Razorpay Integration Methods
+  async getOrganizationByRazorpaySubscriptionId(subscriptionId: string) {
+    this.logger.log(`Looking up organization for Razorpay subscription: ${subscriptionId}`);
+
+    // First: search in subscriptions by Razorpay identifier
+    const subscription = await this._subscription.model.subscription.findFirst({
+      where: {
+        identifier: subscriptionId,
+        deletedAt: null
+      },
+      include: { organization: true }
+    });
+
+    if (subscription?.organization) {
+      this.logger.log(`Found organization ${subscription.organization.id} by subscription identifier`);
+      return subscription.organization;
+    }
+
+    // Second: search in organizations by paymentId that might contain Razorpay info
+    const organization = await this._organization.model.organization.findFirst({
+      where: {
+        paymentId: { contains: subscriptionId }
+      }
+    });
+
+    if (organization) {
+      this.logger.log(`Found organization ${organization.id} by paymentId containing ${subscriptionId}`);
+      return organization;
+    }
+
+    // Third: search by exact paymentId match
+    const exactOrg = await this._organization.model.organization.findFirst({
+      where: {
+        paymentId: subscriptionId
+      }
+    });
+
+    if (exactOrg) {
+      this.logger.log(`Found organization ${exactOrg.id} by exact paymentId match`);
+      return exactOrg;
+    }
+
+    this.logger.warn(`No organization found for Razorpay subscription: ${subscriptionId}`);
+    return null;
+  }
+
   // ================================================
   // NEW SUBSCRIPTION BILLING SYSTEM METHODS
   // ================================================

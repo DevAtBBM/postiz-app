@@ -28,6 +28,11 @@ export class SubscriptionService {
     return this._subscriptionRepository.getOrganizationByPayPalSubscriptionId(subscriptionId);
   }
 
+  // Razorpay Integration Methods
+  async getOrganizationByRazorpaySubscriptionId(subscriptionId: string) {
+    return this._subscriptionRepository.getOrganizationByRazorpaySubscriptionId(subscriptionId);
+  }
+
   useCredit<T>(organization: Organization, type = 'ai_images', func: () => Promise<T>) : Promise<T> {
     return this._subscriptionRepository.useCredit(organization, type, func);
   }

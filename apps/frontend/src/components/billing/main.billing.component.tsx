@@ -17,7 +17,7 @@ import { useSWRConfig } from 'swr';
 import { useUser } from '@gitroom/frontend/components/layout/user.context';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useVariables } from '@gitroom/react/helpers/variable.context';
-import { useModals } from '@gitroom/frontend/components/layout/new-modal';
+import { useModals } from '@mantine/modals';
 import { TopTitle } from '@gitroom/frontend/components/launches/helpers/top.title.component';
 import { Textarea } from '@gitroom/react/form/textarea';
 import { useFireEvents } from '@gitroom/helpers/utils/use.fire.events';
@@ -28,7 +28,6 @@ import { TrackEnum } from '@gitroom/nestjs-libraries/user/track.enum';
 import { PurchaseCrypto } from '@gitroom/frontend/components/billing/purchase.crypto';
 import { useT } from '@gitroom/react/translation/get.transation.service.client';
 import { FinishTrial } from '@gitroom/frontend/components/billing/finish.trial';
-import { newDayjs } from '@gitroom/frontend/components/layout/set.timezone';
 
 export const Prorate: FC<{
   period: 'MONTHLY' | 'YEARLY';
@@ -135,38 +134,6 @@ export const Features: FC<{
     </div>
   );
 };
-
-const Accept: FC<{ resolve: (res: boolean) => void }> = ({ resolve }) => {
-  const [loading, setLoading] = useState(false);
-  const fetch = useFetch();
-  const toaster = useToaster();
-
-  const apply = useCallback(async () => {
-    setLoading(true);
-    await fetch('/billing/apply-discount', {
-      method: 'POST',
-    });
-
-    resolve(true);
-    toaster.show('50% discount applied successfully');
-  }, []);
-
-  return (
-    <div>
-      <div className="mb-[20px]">
-        Would you accept 50% discount for 3 months instead? 🙏🏻
-      </div>
-      <div className="flex gap-[10px]">
-        <Button loading={loading} onClick={apply}>
-          Apply 50% discount for 3 months
-        </Button>
-        <Button onClick={() => resolve(false)} className="!bg-red-800">
-          Cancel my subscription
-        </Button>
-      </div>
-    </div>
-  );
-};
 const Info: FC<{
   proceed: (feedback: string) => void;
   isReactivation?: boolean;
@@ -183,7 +150,28 @@ const Info: FC<{
   const t = useT();
 
   return (
-    <div className="relative flex gap-[20px] flex-col flex-1 rounded-[4px]">
+    <div className="relative flex gap-[20px] flex-col flex-1 rounded-[4px] border border-customColor6 bg-sixth p-[16px] pt-0 w-[500px]">
+      <TopTitle title="Oh no" />
+      <button
+        className="outline-none absolute end-[20px] top-[15px] mantine-UnstyledButton-root mantine-ActionIcon-root hover:bg-tableBorder cursor-pointer mantine-Modal-close mantine-1dcetaa"
+        type="button"
+      >
+        <svg
+          viewBox="0 0 15 15"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+          width="16"
+          height="16"
+        >
+          <path
+            d="M11.7816 4.03157C12.0062 3.80702 12.0062 3.44295 11.7816 3.2184C11.5571 2.99385 11.193 2.99385 10.9685 3.2184L7.50005 6.68682L4.03164 3.2184C3.80708 2.99385 3.44301 2.99385 3.21846 3.2184C2.99391 3.44295 2.99391 3.80702 3.21846 4.03157L6.68688 7.49999L3.21846 10.9684C2.99391 11.193 2.99391 11.557 3.21846 11.7816C3.44301 12.0061 3.80708 12.0061 4.03164 11.7816L7.50005 8.31316L10.9685 11.7816C11.193 12.0061 11.5571 12.0061 11.7816 11.7816C12.0062 11.557 12.0062 11.193 11.7816 10.9684L8.31322 7.49999L11.7816 4.03157Z"
+            fill="currentColor"
+            fillRule="evenodd"
+            clipRule="evenodd"
+          ></path>
+        </svg>
+      </button>
+
       <div>
         {props.isReactivation
           ? t('we_are_glad_to_have_you_back', 'Welcome back! We\'re glad to have you back.')
@@ -252,6 +240,7 @@ export const MainBillingComponent: FC<{
   const [monthlyOrYearly, setMonthlyOrYearly] = useState<'on' | 'off'>(
     period === 'MONTHLY' ? 'off' : 'on'
   );
+  const [selectedProvider, setSelectedProvider] = useState<'paypal' | 'razorpay'>('paypal');
   const [initialChannels, setInitialChannels] = useState(
     sub?.totalChannels || 1
   );
@@ -271,6 +260,58 @@ export const MainBillingComponent: FC<{
     const { portal } = await (await fetch('/billing/portal')).json();
     window.location.href = portal;
   }, []);
+
+  const handleRazorpaySubscriptionModal = useCallback(async (subscriptionData: any) => {
+    // Load Razorpay script if not already loaded
+    if (!(window as any).Razorpay) {
+      const script = document.createElement('script');
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      script.async = true;
+      document.body.appendChild(script);
+
+      await new Promise((resolve) => {
+        script.onload = resolve;
+      });
+    }
+
+    const options = {
+      key: subscriptionData.key, // Razorpay key ID
+      subscription_id: subscriptionData.subscriptionId, // Use subscription_id instead of order_id
+      name: 'Postnify',
+      description: `${subscriptionData.planName} Plan Subscription`,
+      handler: async function (response: any) {
+        // Subscription payment successful
+        toast.show('Payment successful! Your subscription is being activated and may take a few minutes to reflect in your account.', { duration: 55000 });
+        // Reset loading state
+        setLoading(false);
+        // Refresh user data to update subscription status
+        await mutate('/user/self');
+        await mutate('/user/subscription');
+        // Redirect to billing page to show updated subscription
+        router.push('/billing');
+      },
+      modal: {
+        ondismiss: function() {
+          // User closed the modal without completing payment
+          toast.show('Payment cancelled. You can try again anytime.');
+          // Reset loading state
+          setLoading(false);
+        },
+        confirm_close: true,
+        animation: true,
+      },
+      prefill: {
+        email: '', // Could get from user context
+        contact: '',
+      },
+      theme: {
+        color: '#3399cc',
+      },
+    };
+
+    const rzp = new (window as any).Razorpay(options);
+    rzp.open();
+  }, [toast, mutate, router]);
   const currentPackage = useMemo(() => {
     if (!subscription) {
       return 'FREE';
@@ -326,41 +367,19 @@ export const MainBillingComponent: FC<{
           }
         } else {
           // This is a cancellation request
-          const shouldCancel = subscription?.cancelAt || await deleteDialog(
-            `Are you sure you want to cancel your subscription? ${messages.join(', ')}`,
-            'Yes, cancel',
-            'Cancel Subscription'
-          );
-          if (shouldCancel) {
-            const checkDiscount = await (
-              await fetch('/billing/check-discount')
-            ).json();
-            if (checkDiscount.offerCoupon) {
-              const info = await new Promise((res) => {
-                modal.openModal({
-                  title: 'Before you cancel',
-                  withCloseButton: true,
-                  classNames: {
-                    modal: 'bg-transparent text-textColor',
-                  },
-                  children: <Accept resolve={res} />,
-                });
-              });
-
-              modal.closeAll();
-
-              if (info) {
-                return;
-              }
-            }
-
+          if (
+            await deleteDialog(
+              `Are you sure you want to cancel your subscription? ${messages.join(
+                ', '
+              )}`,
+              'Yes, cancel',
+              'Cancel Subscription'
+            )
+          ) {
             const info = await new Promise((res) => {
               modal.openModal({
-                title: t(
-                'we_are_sorry_to_see_you_go',
-                'We are sorry to see you go :('
-              ),
-              withCloseButton: true,
+                title: '',
+                withCloseButton: false,
                 classNames: {
                   modal: 'bg-transparent text-textColor',
                 },
@@ -368,7 +387,6 @@ export const MainBillingComponent: FC<{
                 size: 'auto',
               });
             });
-
             setLoading(true);
             const { cancel_at } = await (
               await fetch('/billing/cancel', {
@@ -391,66 +409,77 @@ export const MainBillingComponent: FC<{
         }
         return;
       }
+      if (
+        messages.length &&
+        !(await deleteDialog(messages.join(', '), 'Yes, continue'))
+      ) {
+        return;
+      }
+      setLoading(true);
+      const response = await (
+        await fetch('/billing/subscribe', {
+          method: 'POST',
+          body: JSON.stringify({
+            period: monthlyOrYearly === 'on' ? 'YEARLY' : 'MONTHLY',
+            utm,
+            billing,
+            tolt: tolt(),
+            provider: selectedProvider,
+          }),
+        })
+      ).json();
+
+      const { url, portal, provider: responseProvider, redirectUrls } = response;
+
+      if (url) {
+        await track(TrackEnum.InitiateCheckout, {
+          value:
+            pricing[billing][
+              monthlyOrYearly === 'on' ? 'year_price' : 'month_price'
+            ],
+        });
+
+        window.location.href = url;
+        return;
+      }
+
+      if (responseProvider === 'razorpay') {
+        // Handle Razorpay subscription modal checkout
+        await handleRazorpaySubscriptionModal(response);
+        return;
+      }
+      if (portal) {
         if (
-          messages.length &&
-          !(await deleteDialog(messages.join(', '), 'Yes, continue'))
+          await deleteDialog(
+            'We could not charge your credit card, please update your payment method',
+            'Update',
+            'Payment Method Required'
+          )
         ) {
-          return;
+          window.open(portal);
         }
-        setLoading(true);
-        const { url, portal } = await (
-          await fetch('/billing/subscribe', {
-            method: 'POST',
-            body: JSON.stringify({
-              period: monthlyOrYearly === 'on' ? 'YEARLY' : 'MONTHLY',
-              utm,
-              billing,
-              tolt: tolt(),
-            }),
-          })
-        ).json();
-        if (url) {
-          await track(TrackEnum.InitiateCheckout, {
-            value:
-              pricing[billing][
-                monthlyOrYearly === 'on' ? 'year_price' : 'month_price'
-              ],
-          });
-          window.location.href = url;
-          return;
-        }
-        if (portal) {
-          if (
-            await deleteDialog(
-              'We could not charge your credit card, please update your payment method',
-              'Update',
-              'Payment Method Required'
-            )
-          ) {
-            window.open(portal);
+      } else {
+        setPeriod(monthlyOrYearly === 'on' ? 'YEARLY' : 'MONTHLY');
+        setSubscription((subs) => ({
+          ...subs!,
+          subscriptionTier: billing,
+          cancelAt: null,
+        }));
+        mutate(
+          '/user/self',
+          {
+            ...user,
+            tier: billing,
+          },
+          {
+            revalidate: false,
           }
-        } else {
-          setPeriod(monthlyOrYearly === 'on' ? 'YEARLY' : 'MONTHLY');
-          setSubscription((subs) => ({
-            ...subs!,
-            subscriptionTier: billing,
-            cancelAt: null,
-          }));
-          mutate(
-            '/user/self',
-            {
-              ...user,
-              tier: billing,
-            },
-            {
-              revalidate: false,
-            }
-          );
-          toast.show('Subscription updated successfully');
-        }
-        setLoading(false);
-      },
-    [monthlyOrYearly, subscription, user, utm]
+        );
+        toast.show('Subscription updated successfully');
+      }
+      setLoading(false);
+    },
+    [monthlyOrYearly, subscription, user, utm, selectedProvider]
   );
   if (user?.isLifetime) {
     router.replace('/');
@@ -466,6 +495,40 @@ export const MainBillingComponent: FC<{
             <Slider value={monthlyOrYearly} onChange={setMonthlyOrYearly} />
           </div>
           <div>{t('yearly', 'YEARLY')}</div>
+        </div>
+      </div>
+
+      {/* Payment Provider Selection */}
+      <div className="flex justify-center mt-[1px]">
+        <div className="flex gap-4 p-4 bg-sixth border border-customColor6 rounded-lg">
+          <div className="flex items-center gap-2">
+            <input
+              type="radio"
+              id="paypal"
+              name="paymentProvider"
+              value="paypal"
+              checked={selectedProvider === 'paypal'}
+              onChange={(e) => setSelectedProvider(e.target.value as 'paypal')}
+              className="w-4 h-4"
+            />
+            <label htmlFor="paypal" className="cursor-pointer text-sm font-medium">
+              PayPal
+            </label>
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              type="radio"
+              id="razorpay"
+              name="paymentProvider"
+              value="razorpay"
+              checked={selectedProvider === 'razorpay'}
+              onChange={(e) => setSelectedProvider(e.target.value as 'razorpay')}
+              className="w-4 h-4"
+            />
+            <label htmlFor="razorpay" className="cursor-pointer text-sm font-medium">
+              Razorpay (Guest Checkout)
+            </label>
+          </div>
         </div>
       </div>
 
@@ -654,8 +717,8 @@ export const MainBillingComponent: FC<{
           {t(
             'your_subscription_will_be_canceled_at',
             'Your subscription will be canceled at'
-          )}{' '}
-          {newDayjs(subscription.cancelAt).local().format('D MMM, YYYY')}
+          )}
+          {dayjs(subscription.cancelAt).local().format('D MMM, YYYY')}
           <br />
           {t(
             'you_will_never_be_charged_again',

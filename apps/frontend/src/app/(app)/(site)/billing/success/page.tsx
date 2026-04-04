@@ -19,21 +19,24 @@ const SuccessComponent: FC = () => {
   const subscriptionId = searchParams.get('subscription_id');
   const baToken = searchParams.get('ba_token');
   const token = searchParams.get('token');
+  const provider = searchParams.get('provider') || 'paypal';
+  const orgId = searchParams.get('org_id');
 
   useEffect(() => {
     if (subscriptionId) {
       // Track successful subscription
       track(TrackEnum.Purchase, {
-        provider: 'paypal',
+        provider: provider,
         subscriptionId: subscriptionId
       });
 
       // Refresh user data to get updated subscription status
       mutate('/user/self');
+      mutate('/user/subscription');
 
       setLoading(false);
     }
-  }, [subscriptionId, mutate]);
+  }, [subscriptionId, provider, mutate]);
 
   const handleContinue = () => {
     router.push('/billing');
@@ -66,7 +69,7 @@ const SuccessComponent: FC = () => {
         </h1>
 
         <p className="text-gray-600 mb-6">
-          Your PayPal subscription has been successfully created and is now active.
+          Your {provider === 'razorpay' ? 'Razorpay' : 'PayPal'} subscription has been successfully created and is now active.
         </p>
 
         {/* Subscription Details */}

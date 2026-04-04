@@ -1,7 +1,8 @@
 import { Body, Controller, Get, Param, Post, Req, Query } from '@nestjs/common';
+import * as crypto from 'crypto';
 import { SubscriptionService } from '@gitroom/nestjs-libraries/database/prisma/subscriptions/subscription.service';
 import { PayPalService } from '@gitroom/nestjs-libraries/services/paypal.service';
-import { StripeService } from '@gitroom/nestjs-libraries/services/stripe.service';
+import { RazorpayService } from '@gitroom/nestjs-libraries/services/razorpay.service';
 import { GetOrgFromRequest } from '@gitroom/nestjs-libraries/user/org.from.request';
 import { Organization, User } from '@prisma/client';
 import { BillingSubscribeDto } from '@gitroom/nestjs-libraries/dtos/billing/billing.subscribe.dto';
@@ -10,7 +11,6 @@ import { GetUserFromRequest } from '@gitroom/nestjs-libraries/user/user.from.req
 import { NotificationService } from '@gitroom/nestjs-libraries/database/prisma/notifications/notification.service';
 import { Request } from 'express';
 import { Nowpayments } from '@gitroom/nestjs-libraries/crypto/nowpayments';
-import { AuthService } from '@gitroom/helpers/auth/auth.service';
 
 @ApiTags('Billing')
 @Controller('/billing')
@@ -18,11 +18,11 @@ export class BillingController {
   constructor(
     private _subscriptionService: SubscriptionService,
     private _paypalService: PayPalService,
-    private _stripeService: StripeService,
+    private _razorpayService: RazorpayService,
     private _notificationService: NotificationService,
     private _nowpayments: Nowpayments
   ) {
-    console.log('BillingController initialized with PayPal Service integration');
+    console.log('BillingController initialized with PayPal and Razorpay Service integration');
   }
 
   @Get('/check/:id')
@@ -34,20 +34,6 @@ export class BillingController {
     return {
       status: 'ACTIVE', // Mock success status
     };
-  }
-
-  @Get('/check-discount')
-  async checkDiscount(@GetOrgFromRequest() org: Organization) {
-    return {
-      offerCoupon: !(await this._stripeService.checkDiscount(org.paymentId))
-        ? false
-        : AuthService.signJWT({ discount: true }),
-    };
-  }
-
-  @Post('/apply-discount')
-  async applyDiscount(@GetOrgFromRequest() org: Organization) {
-    await this._stripeService.applyDiscount(org.paymentId);
   }
 
   @Post('/finish-trial')
@@ -66,81 +52,103 @@ export class BillingController {
     };
   }
 
-  @Post('/embedded')
-  embedded(
-    @GetOrgFromRequest() org: Organization,
-    @GetUserFromRequest() user: User,
-    @Body() body: BillingSubscribeDto,
-    @Req() req: Request
-  ) {
-    const uniqueId = req?.cookies?.track;
-    return this._stripeService.embedded(
-      uniqueId,
-      org.id,
-      user.id,
-      body,
-      org.allowTrial
-    );
-  }
-
   @Post('/subscribe')
   async subscribe(
     @GetOrgFromRequest() org: Organization,
     @GetUserFromRequest() user: User,
-    @Body() body: BillingSubscribeDto,
+    @Body() body: BillingSubscribeDto & { provider?: 'paypal' | 'razorpay' },
     @Req() req: Request
   ): Promise<any> {
     try {
       const uniqueId = req?.cookies?.track || `${org.id}_${Date.now()}`;
+      const provider = body.provider || 'paypal'; // Default to PayPal for backward compatibility
 
-      // Use real PayPalService to create subscription
-      const subscriptionResult = await this._paypalService.subscribe(
-        uniqueId,
-        org.id,
-        user.id,
-        body,
-        false // allowTrial could be derived from org data or body
-      );
+      let subscriptionResult: any;
+      let serviceName: string;
 
-      console.log(`PayPal subscription created for org ${org.id}, plan: ${body.billing}`);
+      if (provider === 'razorpay') {
+        // Use RazorpayService to create subscription
+        subscriptionResult = await this._razorpayService.subscribe(
+          uniqueId,
+          org.id,
+          user.id,
+          body,
+          false // allowTrial could be derived from org data or body
+        );
+        serviceName = 'Razorpay';
+      } else {
+        // Use PayPalService to create subscription (default)
+        subscriptionResult = await this._paypalService.subscribe(
+          uniqueId,
+          org.id,
+          user.id,
+          body,
+          false // allowTrial could be derived from org data or body
+        );
+        serviceName = 'PayPal';
+      }
+
+      console.log(`${serviceName} subscription created for org ${org.id}, plan: ${body.billing}`);
 
       // Format response to match frontend expectations
-      // Frontend expects { url, portal } format
-      const approvalLink = subscriptionResult.links?.find(link => link.rel === 'approve');
-      const url = approvalLink ? approvalLink.href : null;
+      let url: string | null = null;
 
-      // Create database mapping for webhook lookup using PayPal subscription ID as identifier
+      if (provider === 'razorpay') {
+        // For Razorpay, use modal checkout instead of hosted redirect
+        // The frontend will handle opening the Razorpay modal
+        url = null;
+      } else {
+        // PayPal returns links array
+        const approvalLink = subscriptionResult.links?.find((link: any) => link.rel === 'approve');
+        url = approvalLink ? approvalLink.href : null;
+      }
+
+      // Create database mapping for webhook lookup
       try {
-        await this._subscriptionService.createPayPalSubscription(
-          false, // isTrailing
-          subscriptionResult.id, // Use PayPal subscription ID as identifier for webhook lookup
-          subscriptionResult.id, // customerId (using PayPal subscription ID)
-          body.billing as any, // billing tier
-          body.period || 'MONTHLY', // period (use user's selection)
-          null, // cancelAt
-          { id: org.id } // organization
-        );
+        if (provider === 'razorpay') {
+          // For Razorpay, we need to create a similar mapping
+          await this._subscriptionService.createPayPalSubscription(
+            false, // isTrailing
+            subscriptionResult.id, // Use Razorpay subscription ID as identifier
+            subscriptionResult.customer_id || subscriptionResult.id, // customerId
+            body.billing as any, // billing tier
+            body.period || 'MONTHLY', // period
+            null, // cancelAt
+            { id: org.id } // organization
+          );
+        } else {
+          // PayPal mapping
+          await this._subscriptionService.createPayPalSubscription(
+            false, // isTrailing
+            subscriptionResult.id, // Use PayPal subscription ID as identifier
+            subscriptionResult.id, // customerId
+            body.billing as any, // billing tier
+            body.period || 'MONTHLY', // period
+            null, // cancelAt
+            { id: org.id } // organization
+          );
+        }
 
-        // Also update organization's payment ID for future reference
+        // Update organization's payment provider and ID for future reference
         await this._subscriptionService.updateCustomerId(org.id, subscriptionResult.id);
 
-        console.log(`✅ Successfully created database mapping for PayPal subscription ${subscriptionResult.id} -> org ${org.id}`);
+        console.log(`✅ Successfully created database mapping for ${serviceName} subscription ${subscriptionResult.id} -> org ${org.id}`);
       } catch (error) {
-        console.error(`❌ Failed to create database mapping for PayPal subscription ${subscriptionResult.id} -> org ${org.id}:`, error instanceof Error ? error.message : String(error));
+        console.error(`❌ Failed to create database mapping for ${serviceName} subscription ${subscriptionResult.id} -> org ${org.id}:`, error instanceof Error ? error.message : String(error));
 
-        // Don't fail the entire request - PayPal subscription was created successfully
-        // The webhook will need to find the organization differently if this mapping fails
-        console.warn(`⚠️  PayPal subscription created but database mapping failed - webhook will try to find organization by other means`);
+        // Don't fail the entire request - subscription was created successfully
+        console.warn(`⚠️  ${serviceName} subscription created but database mapping failed - webhook will try to find organization by other means`);
       }
 
       return {
-        url: url, // PayPal approval URL for frontend redirect
-        subscriptionId: subscriptionResult.id, // PayPal subscription ID
-        subscription: subscriptionResult, // Full PayPal response for reference
+        url: url, // Payment provider approval/checkout URL for frontend redirect
+        subscriptionId: subscriptionResult.id, // Subscription ID
+        provider: provider, // Payment provider used
+        subscription: subscriptionResult, // Full response for reference
         ...subscriptionResult // Include all original fields
       };
     } catch (error) {
-      console.error('Error creating PayPal subscription:', error);
+      console.error('Error creating subscription:', error);
       throw error;
     }
   }
@@ -215,16 +223,10 @@ export class BillingController {
       console.log(`PayPal: Reactivating subscription for org ${org.id}`);
 
       // Send reactivation notification
-      const reactivationHtml = `
-        <p>Subscription Reactivation Confirmed</p>
-        <p>The subscription for <strong>${org.name}</strong> has been successfully reactivated.</p>
-        <p>The organization will continue to have access to all paid features and their billing cycle will resume as normal.</p>
-        <p>If you have any questions about this reactivation, please contact our support team.</p>
-      `;
       await this._notificationService.sendEmail(
         process.env.EMAIL_FROM_ADDRESS,
-        'Subscription Reactivated - Postnify',
-        reactivationHtml,
+        'Subscription Reactivated',
+        `Organization ${org.name} has reactivated their subscription.`,
         user.email
       );
 
@@ -237,17 +239,10 @@ export class BillingController {
       console.log(`PayPal: Cancelling subscription for org ${org.id}, scheduled to end at ${cancelAt}`);
 
       // Send cancellation notification
-      const cancellationHtml = `
-        <p>Subscription Cancellation Notice</p>
-        <p>The subscription for <strong>${org.name}</strong> has been cancelled.</p>
-        <p><strong>Cancellation reason:</strong> ${body.feedback || 'Not specified'}</p>
-        <p>The organization will continue to have access to paid features until the end of their current billing period. After that date, they'll be downgraded to the free plan.</p>
-        <p>If this cancellation was made in error or if you'd like to reactivate the subscription, please contact our support team immediately.</p>
-      `;
       await this._notificationService.sendEmail(
         process.env.EMAIL_FROM_ADDRESS,
-        'Subscription Cancelled - Postnify',
-        cancellationHtml,
+        'Subscription Cancelled',
+        `Organization ${org.name} has cancelled their subscription because: ${body.feedback}`,
         user.email
       );
 
@@ -538,47 +533,47 @@ export class BillingController {
     }
   ) {
     try {
-      // Send billing issue email to support
+      // Send billing issue email
       const subject = `Billing Issue Report - ${org.name}`;
-      const supportHtml = `
-        <p><strong>New Billing Issue Report</strong></p>
-        <p><strong>Organization:</strong> ${org.name}</p>
-        <p><strong>Organization ID:</strong> ${org.id}</p>
-        <p><strong>User:</strong> ${user.name || user.email} (${user.email})</p>
-        <p><strong>Issue Type:</strong> ${body.issueType}</p>
-        <p><strong>Severity:</strong> ${body.severity}</p>
-        <p><strong>Description:</strong></p>
-        <p>${body.description}</p>
-        <p><strong>Reported at:</strong> ${new Date().toISOString()}</p>
+      const emailBody = `
+        Billing Issue Report
+
+        Organization: ${org.name}
+        Organization ID: ${org.id}
+        User: ${user.name || user.email} (${user.email})
+
+        Issue Type: ${body.issueType}
+        Severity: ${body.severity}
+        Description: ${body.description}
+
+        Reported at: ${new Date().toISOString()}
       `;
 
       await this._notificationService.sendEmail(
         process.env.EMAIL_FROM_ADDRESS,
         subject,
-        supportHtml,
+        emailBody,
         process.env.SUPPORT_EMAIL_ADDRESS || process.env.EMAIL_FROM_ADDRESS
       );
 
       // Send confirmation to user
-      const reference = Math.random().toString(36).substr(2, 6).toUpperCase();
-      const userHtml = `
-        <p>Dear ${user.name || 'User'},</p>
-        <p>Thank you for reporting a billing issue with your Postnify account. Our support team has received your report and will review your case within 24 hours.</p>
-        <p><strong>Issue Details:</strong></p>
-        <ul>
-          <li><strong>Type:</strong> ${body.issueType}</li>
-          <li><strong>Severity:</strong> ${body.severity}</li>
-          <li><strong>Reference:</strong> #${reference}</li>
-        </ul>
-        <p>We appreciate your patience and will get back to you as soon as possible.</p>
-        <p>If you need immediate assistance, please don't hesitate to reply to this email.</p>
-        <p>Best regards,<br>The Postnify Support Team</p>
+      const userConfirmation = `
+        Dear ${user.name || 'User'},
+
+        Thank you for reporting a billing issue. Our support team will review your case and respond within 24 hours.
+
+        Issue Details:
+        - Type: ${body.issueType}
+        - Severity: ${body.severity}
+
+        Best regards,
+        Gitroom Support Team
       `;
 
       await this._notificationService.sendEmail(
         process.env.EMAIL_FROM_ADDRESS,
-        `Billing Issue Received - Reference #${reference}`,
-        userHtml,
+        'Billing Issue Received - Reference #' + Math.random().toString(36).substr(2, 6).toUpperCase(),
+        userConfirmation,
         user.email
       );
 
@@ -594,17 +589,10 @@ export class BillingController {
 
   private async notifyPaymentRetry(org: Organization, paymentId: string) {
     // Send payment retry notification
-    const retryHtml = `
-      <p>Payment Retry Initiated</p>
-      <p>A payment retry has been automatically initiated for <strong>${org.name}</strong>.</p>
-      <p><strong>Payment ID:</strong> ${paymentId}</p>
-      <p>The system will attempt to process the payment again. If successful, the subscription will remain active. If it fails again, the organization may be downgraded or suspended.</p>
-      <p>Please monitor the payment status and contact the customer if needed.</p>
-    `;
     await this._notificationService.sendEmail(
       process.env.EMAIL_FROM_ADDRESS,
-      'Payment Retry Initiated - Postnify',
-      retryHtml,
+      'Payment Retry Initiated',
+      `Payment retry has been initiated for ${org.name} (Payment ID: ${paymentId})`,
       process.env.PAYMENT_NOTIFICATION_EMAIL || process.env.EMAIL_FROM_ADDRESS
     );
   }
@@ -661,6 +649,120 @@ export class BillingController {
   }
 
   // Test endpoint to create a sample transaction (for debugging)
+  @Post('/verify-payment')
+  async verifyRazorpayPayment(
+    @Body() body: {
+      razorpay_order_id: string;
+      razorpay_payment_id: string;
+      razorpay_signature: string;
+      organizationId: string;
+      planName: string;
+      period: string;
+      amount: number;
+    }
+  ) {
+    try {
+      console.log(`🔐 Verifying Razorpay payment for org ${body.organizationId}`);
+
+      // Verify payment signature (security check)
+      const sign = body.razorpay_order_id + '|' + body.razorpay_payment_id;
+      const expectedSign = crypto
+        .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET!)
+        .update(sign.toString())
+        .digest('hex');
+
+      if (body.razorpay_signature !== expectedSign) {
+        throw new Error('Payment signature verification failed');
+      }
+
+      // Payment is verified, now create/update subscription
+      const subscriptionResult = await this._subscriptionService.createOrUpdateSubscription(
+        false, // isTrailing
+        body.razorpay_payment_id, // identifier (use payment ID)
+        body.razorpay_payment_id, // customerId
+        // Get channel count based on plan
+        body.planName === 'STANDARD' ? 5 :
+        body.planName === 'PRO' ? 20 :
+        body.planName === 'ULTIMATE' ? 100 : 1,
+        body.planName as any,
+        body.period as 'MONTHLY' | 'YEARLY',
+        null, // cancelAt
+        undefined, // code
+        { id: body.organizationId }
+      );
+
+      // Create payment transaction record
+      await this._subscriptionService.createPaymentTransaction(
+        body.organizationId,
+        null, // subscriptionId - we'll set this later if needed
+        'RAZORPAY',
+        body.razorpay_payment_id,
+        body.amount * 100, // Convert to cents for consistency
+        'USD',
+        'SUCCEEDED',
+        'SUBSCRIPTION_PAYMENT',
+        undefined, // paymentMethod
+        `Razorpay subscription payment - ${body.planName}`,
+        undefined, // failureReason
+        {
+          razorpay_order_id: body.razorpay_order_id,
+          razorpay_signature: body.razorpay_signature
+        }
+      );
+
+      console.log(`✅ Successfully activated subscription for org ${body.organizationId}`);
+
+      return {
+        success: true,
+        message: 'Payment verified and subscription activated',
+        subscription: subscriptionResult
+      };
+    } catch (error) {
+      console.error('❌ Payment verification failed:', error);
+      throw new Error('Payment verification failed');
+    }
+  }
+
+  @Get('/razorpay-redirect')
+  async handleRazorpayRedirect(
+    @Query() query: {
+      subscription_id?: string;
+      payment_id?: string;
+      org_id?: string;
+      status?: string;
+    }
+  ) {
+    try {
+      console.log(`🔄 Handling Razorpay redirect for subscription ${query.subscription_id}`);
+
+      // If we have a subscription_id, check its status
+      if (query.subscription_id) {
+        const status = await this._razorpayService.checkSubscription(query.org_id || '', query.subscription_id);
+
+        if (status === 'ACTIVE') {
+          // Redirect to success page
+          const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+          const successUrl = `${frontendUrl}/billing/success?provider=razorpay&subscription_id=${query.subscription_id}&org_id=${query.org_id}`;
+          return { redirectUrl: successUrl };
+        } else {
+          // Redirect to cancel/failure page
+          const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+          const cancelUrl = `${frontendUrl}/billing/cancel?provider=razorpay&subscription_id=${query.subscription_id}&org_id=${query.org_id}`;
+          return { redirectUrl: cancelUrl };
+        }
+      }
+
+      // Default redirect to billing page
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      return { redirectUrl: `${frontendUrl}/billing` };
+
+    } catch (error) {
+      console.error('❌ Error handling Razorpay redirect:', error);
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      return { redirectUrl: `${frontendUrl}/billing` };
+    }
+  }
+
   @Post('/test-transaction')
   async createTestTransaction(@GetOrgFromRequest() org: Organization) {
     try {

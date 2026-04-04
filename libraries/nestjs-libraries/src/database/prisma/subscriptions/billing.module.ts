@@ -5,6 +5,7 @@ import { UsageTrackingMiddleware } from './usage.middleware';
 import { SubscriptionService } from './subscription.service';
 import { PayPalService } from '../../../services/paypal.service';
 import { PayPalBillingService } from '../../../services/paypal-billing.service';
+import { RazorpayService } from '../../../services/razorpay.service';
 import { PaymentWebhooksController } from '../../../../services/payment-webhooks.controller';
 
 @Global()
@@ -16,6 +17,7 @@ import { PaymentWebhooksController } from '../../../../services/payment-webhooks
     UsageTrackingMiddleware,
     PayPalService,
     PayPalBillingService,
+    RazorpayService,
     PaymentWebhooksController
   ],
   exports: [
@@ -24,6 +26,7 @@ import { PaymentWebhooksController } from '../../../../services/payment-webhooks
     UsageTrackingMiddleware,
     PayPalService,
     PayPalBillingService,
+    RazorpayService,
     PaymentWebhooksController
   ],
   controllers: [PaymentWebhooksController],

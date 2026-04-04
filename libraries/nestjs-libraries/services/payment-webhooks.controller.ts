@@ -4,17 +4,46 @@ import { ConfigService } from '@nestjs/config';
 import { SubscriptionService } from '@gitroom/nestjs-libraries/database/prisma/subscriptions/subscription.service';
 // import { PayPalBillingService } from '@gitroom/nestjs-libraries/services/paypal-billing.service';
 import { pricing } from '@gitroom/nestjs-libraries/database/prisma/subscriptions/pricing';
+import { RazorpayService } from '@gitroom/nestjs-libraries/services/razorpay.service';
 
-// Razorpay Webhook Events
+// Razorpay Webhook Events - Updated to match actual webhook structure
 interface RazorpayWebhookPayload {
+  entity: string;
+  account_id: string;
   event: string;
-  data: {
+  contains: string[];
+  payload: {
+    subscription?: {
+      entity: {
+        id: string;
+        status: string;
+        current_start: number;
+        current_end: number;
+        customer_id?: string;
+        plan_id?: string;
+        total_count?: number;
+        paid_count?: number;
+        notes?: {
+          organization_id?: string;
+          user_id?: string;
+          plan_name?: string;
+          period?: string;
+          type?: string;
+          [key: string]: any;
+        };
+      };
+    };
     payment?: {
       entity: {
         id: string;
         amount: number;
         currency: string;
         status: string;
+        notes?: {
+          organization_id?: string;
+          subscription_id?: string;
+          [key: string]: any;
+        };
       };
     };
     order?: {
@@ -23,16 +52,17 @@ interface RazorpayWebhookPayload {
         amount: number;
         currency: string;
         status: string;
+        notes?: {
+          organization_id?: string;
+          user_id?: string;
+          plan_name?: string;
+          period?: string;
+          type?: string;
+          [key: string]: any;
+        };
       };
     };
-    subscription?: {
-      entity: {
-        id: string;
-        status: string;
-        current_start: number;
-        current_end: number;
-      };
-    };
+    created_at: number;
   };
 }
 
@@ -84,15 +114,14 @@ export class PaymentWebhooksController {
   constructor(
     private readonly configService: ConfigService,
     private readonly subscriptionService: SubscriptionService,
+    private readonly razorpayService: RazorpayService,
     // private readonly paypalBillingService: PayPalBillingService,
   ) {}
 
   // Razorpay Webhook Signature Verification
   private verifySignature(body: any, signature: string, secret: string): boolean {
     try {
-      // TODO: Implement proper signature verification using crypto.createHmac
-      // For now, return true for testing
-      return true;
+      return this.razorpayService.verifyWebhookSignature(JSON.stringify(body), signature, secret);
     } catch (error) {
       this.logger.error('Signature verification failed', error);
       return false;
@@ -216,11 +245,18 @@ export class PaymentWebhooksController {
     try {
       this.logger.log(`Received Razorpay webhook: ${payload.event}`);
 
-      // TODO: Verify signature in production
-      // if (!this.verifySignature(payload, signature, process.env.RAZORPAY_WEBHOOK_SECRET)) {
-      //   this.logger.error('Invalid webhook signature');
-      //   return { status: 'error', message: 'Invalid signature' };
-      // }
+      // Verify webhook signature for security
+      const razorpayWebhookSecret = this.configService.get<string>('RAZORPAY_WEBHOOK_SECRET');
+      if (razorpayWebhookSecret) {
+        if (!this.verifySignature(payload, signature, razorpayWebhookSecret)) {
+          this.logger.error('Invalid Razorpay webhook signature');
+          return { status: 'error', message: 'Invalid signature' };
+        }
+      } else {
+        this.logger.warn('RAZORPAY_WEBHOOK_SECRET not configured - skipping signature verification');
+      }
+
+      this.logger.log(`Processing Razorpay webhook event: ${payload.event}`);
 
       switch (payload.event) {
         case 'payment.captured':
@@ -255,83 +291,310 @@ export class PaymentWebhooksController {
   }
 
   private async handlePaymentCaptured(payload: RazorpayWebhookPayload) {
-    if (!payload.data.payment) return;
+    if (!payload.payload || !payload.payload.payment) return;
 
-    const payment = payload.data.payment.entity;
+    const payment = payload.payload.payment.entity;
     this.logger.log(`Payment captured: ${payment.id}, Amount: ${payment.amount}`);
 
-    // TODO: Implement payment transaction recording
-    // await this.subscriptionService.recordPaymentTransaction({
-    //   provider: 'RAZORPAY',
-    //   providerTransactionId: payment.id,
-    //   amount: payment.amount,
-    //   currency: payment.currency,
-    //   status: 'SUCCEEDED',
-    //   type: 'SUBSCRIPTION_PAYMENT'
-    // });
+    try {
+      // Try to find organization from order notes first (for subscription payments)
+      let organizationId = payload.payload.order?.entity?.notes?.organization_id;
 
-    // TODO: Find and update subscription based on payment metadata
-    // const organizationId = payload.data.order?.entity?.notes?.organization_id;
-    // if (organizationId) {
-    //   await this.subscriptionService.updateSubscriptionStatus(organizationId, 'ACTIVE');
-    // }
+      // If not found in order notes, try to find via subscription lookup
+      if (!organizationId && payment.notes?.subscription_id) {
+        const organization = await this.subscriptionService.getOrganizationByRazorpaySubscriptionId(payment.notes.subscription_id);
+        organizationId = organization?.id;
+      }
+
+      if (!organizationId) {
+        this.logger.warn(`Could not find organization for payment: ${payment.id}`);
+        return;
+      }
+
+      // Get subscription information for the transaction
+      const subscription = await this.subscriptionService.getSubscription(organizationId);
+
+      // Create payment transaction record
+      await this.subscriptionService.createPaymentTransaction(
+        organizationId,
+        subscription?.id || null,
+        'RAZORPAY',
+        payment.id,
+        payment.amount, // Amount in paisa (subunits)
+        payment.currency,
+        'SUCCEEDED',
+        'SUBSCRIPTION_PAYMENT',
+        undefined, // paymentMethod
+        `Razorpay subscription payment - ${subscription ? subscription.subscriptionTier : 'Plan'}`,
+        undefined, // failureReason
+        payload // full payload as metadata
+      );
+
+      this.logger.log(`Created payment transaction for Razorpay payment: ${payment.id} for org ${organizationId}, amount: ${payment.amount} ${payment.currency}`);
+
+    } catch (error) {
+      this.logger.error(`Failed to process Razorpay payment capture: ${payment.id}`, error);
+      throw error;
+    }
   }
 
   private async handlePaymentFailed(payload: RazorpayWebhookPayload) {
-    if (!payload.data.payment) return;
+    if (!payload.payload || !payload.payload.payment) return;
 
-    const payment = payload.data.payment.entity;
+    const payment = payload.payload.payment.entity;
     this.logger.log(`Payment failed: ${payment.id}`);
 
-    // TODO: Record failed payment transaction
-    // await this.subscriptionService.recordPaymentTransaction({
-    //   provider: 'RAZORPAY',
-    //   providerTransactionId: payment.id,
-    //   amount: payment.amount,
-    //   currency: payment.currency,
-    //   status: 'FAILED',
-    //   type: 'SUBSCRIPTION_PAYMENT'
-    // });
+    try {
+      // Try to find organization from order notes first (for subscription payments)
+      let organizationId = payload.payload.order?.entity?.notes?.organization_id;
 
-    // TODO: Update subscription to PAST_DUE status
-    // const organizationId = find from payment metadata
-    // await this.subscriptionService.updateSubscriptionStatus(organizationId, 'PAST_DUE');
+      // If not found in order notes, try to find via subscription lookup
+      if (!organizationId && payment.notes?.subscription_id) {
+        const organization = await this.subscriptionService.getOrganizationByRazorpaySubscriptionId(payment.notes.subscription_id);
+        organizationId = organization?.id;
+      }
+
+      if (!organizationId) {
+        this.logger.warn(`Could not find organization for failed payment: ${payment.id}`);
+        return;
+      }
+
+      // Get subscription information for the transaction
+      const subscription = await this.subscriptionService.getSubscription(organizationId);
+
+      // Create failed payment transaction record
+      await this.subscriptionService.createPaymentTransaction(
+        organizationId,
+        subscription?.id || null,
+        'RAZORPAY',
+        payment.id,
+        payment.amount, // Amount in paisa (subunits)
+        payment.currency,
+        'FAILED',
+        'SUBSCRIPTION_PAYMENT',
+        undefined, // paymentMethod
+        `Razorpay subscription payment failed - ${subscription ? subscription.subscriptionTier : 'Plan'}`,
+        `Payment failed - see Razorpay payload for details`, // failureReason
+        payload // full payload as metadata
+      );
+
+      // Update subscription status to PAST_DUE if needed
+      // Note: This would require additional logic to determine if this is a recurring payment failure
+      // For now, we just record the transaction
+
+      this.logger.warn(`Recorded failed payment transaction for Razorpay payment: ${payment.id} for org ${organizationId} - user should be notified`);
+
+    } catch (error) {
+      this.logger.error(`Failed to process Razorpay payment failure: ${payment.id}`, error);
+      throw error;
+    }
   }
 
   private async handleSubscriptionActivated(payload: RazorpayWebhookPayload) {
-    if (!payload.data.subscription) return;
+    this.logger.log(`Processing subscription.activated webhook`);
+    this.logger.log(payload);
+    
+    if (!payload.payload || !payload.payload.subscription) {
+      this.logger.error(`Invalid webhook payload structure for subscription.activated - no subscription data found`);
+      return;
+    }
 
-    const subscription = payload.data.subscription.entity;
+    const subscription = payload.payload.subscription.entity;
     this.logger.log(`Subscription activated: ${subscription.id}`);
 
-    // TODO: Create or update subscription in database
-    // await this.subscriptionService.createOrUpdateSubscription({
-    //   providerSubscriptionId: subscription.id,
-    //   status: 'ACTIVE',
-    //   currentPeriodStart: new Date(subscription.current_start * 1000),
-    //   currentPeriodEnd: new Date(subscription.current_end * 1000)
-    // });
+    try {
+      // Find organization by Razorpay subscription ID
+      const organization = await this.subscriptionService.getOrganizationByRazorpaySubscriptionId(subscription.id);
+
+      if (!organization) {
+        this.logger.error(`Organization not found for Razorpay subscription: ${subscription.id}`);
+        return;
+      }
+
+      // Get existing subscription to preserve plan details
+      const existingSubscription = await this.subscriptionService.getSubscription(organization.id);
+
+      if (!existingSubscription) {
+        this.logger.warn(`No existing subscription found for organization ${organization.id} - subscription may not have been created properly`);
+        return;
+      }
+
+      // Extract plan details from Razorpay subscription notes
+      const planName = subscription.notes?.plan_name || 'STANDARD';
+      const period = subscription.notes?.period || 'MONTHLY';
+      const planPricing = pricing[planName as keyof typeof pricing];
+
+      if (!planPricing) {
+        this.logger.error(`Unknown plan name in Razorpay subscription notes: ${planName}`);
+        return;
+      }
+
+      // Update the subscription with all paid plan details
+      const subscriptionRepo = (this.subscriptionService as any)._subscriptionRepository;
+      await subscriptionRepo._subscription.model.subscription.updateMany({
+        where: {
+          organizationId: organization.id,
+          deletedAt: null,
+        },
+        data: {
+          identifier: subscription.id,
+          subscriptionTier: planName,
+          period: period,
+          maxChannels: planPricing.channel,
+          postsPerMonth: planPricing.posts_per_month,
+          aiImagesPerMonth: planPricing.image_generation_count || 0,
+          aiVideosPerMonth: planPricing.generate_videos || 0,
+          maxTeamMembers: planPricing.maxTeamMembers,
+          currentPeriodStart: new Date(subscription.current_start * 1000), // Convert from Unix timestamp
+          currentPeriodEnd: new Date(subscription.current_end * 1000), // Convert from Unix timestamp
+          cancelAt: null, // Clear any cancellation
+        },
+      });
+
+      // Record subscription activation transaction
+      try {
+        const planName = subscription.notes?.plan_name || 'STANDARD';
+        const period = subscription.notes?.period || 'MONTHLY';
+        const planPricing = pricing[planName as keyof typeof pricing] || pricing.STANDARD;
+
+        // Calculate amount based on plan and period
+        const usdAmount = period === 'YEARLY' ? planPricing.year_price : planPricing.month_price;
+        const amountInCents = Math.round(usdAmount * 100); // Already in cents for database
+
+        await this.subscriptionService.createPaymentTransaction(
+          organization.id,
+          existingSubscription.id, // Use database subscription ID for foreign key
+          'RAZORPAY',
+          `activation_${subscription.id}`,
+          amountInCents,
+          'INR', // Razorpay uses INR
+          'SUCCEEDED',
+          'SUBSCRIPTION_PAYMENT',
+          undefined, // paymentMethod
+          `Razorpay subscription activated - ${planName} Plan (${period})`,
+          undefined, // failureReason
+          payload // full payload as metadata
+        );
+
+        this.logger.log(`📝 Recorded activation transaction for Razorpay subscription: ${subscription.id}`);
+      } catch (transactionError) {
+        this.logger.error(`⚠️ Failed to record activation transaction for subscription ${subscription.id}:`, transactionError);
+      }
+
+      this.logger.log(`Successfully activated Razorpay subscription ${subscription.id} for organization ${organization.id}`);
+
+    } catch (error) {
+      this.logger.error(`Failed to process Razorpay subscription activation: ${subscription.id}`, error);
+      throw error;
+    }
   }
 
   private async handleSubscriptionCancelled(payload: RazorpayWebhookPayload) {
-    if (!payload.data.subscription) return;
+    if (!payload.payload || !payload.payload.subscription) return;
 
-    const subscription = payload.data.subscription.entity;
+    const subscription = payload.payload.subscription.entity;
     this.logger.log(`Subscription cancelled: ${subscription.id}`);
 
-    // TODO: Update subscription status to cancelled
-    // await this.subscriptionService.cancelSubscription({
-    //   providerSubscriptionId: subscription.id
-    // });
+    try {
+      // Find organization by Razorpay subscription ID
+      const organization = await this.subscriptionService.getOrganizationByRazorpaySubscriptionId(subscription.id);
+
+      if (!organization) {
+        this.logger.error(`Organization not found for Razorpay subscription: ${subscription.id}`);
+        return;
+      }
+
+      // Get current subscription to handle downgrade
+      const currentSubscription = await this.subscriptionService.getSubscription(organization.id);
+      if (currentSubscription) {
+        // Downgrade to FREE tier
+        await this.subscriptionService.modifySubscription(
+          `razorpay_${subscription.customer_id || subscription.id}`,
+          pricing.FREE.channel || 1,
+          'FREE'
+        );
+      }
+
+      // Record subscription cancellation transaction
+      try {
+        await this.subscriptionService.createPaymentTransaction(
+          organization.id,
+          currentSubscription?.id || null,
+          'RAZORPAY',
+          `cancellation_${subscription.id}`,
+          0, // $0 for cancellation (no charge)
+          'INR',
+          'SUCCEEDED', // Cancellation is a successful operation
+          'MANUAL_ADJUSTMENT', // Cancellation is an adjustment
+          undefined, // paymentMethod
+          `Razorpay subscription cancelled - downgraded from ${currentSubscription?.subscriptionTier || 'Plan'} to FREE`,
+          undefined, // no failure reason for cancellation
+          payload // full payload as metadata
+        );
+
+        this.logger.log(`📝 Recorded cancellation transaction for Razorpay subscription: ${subscription.id}`);
+      } catch (transactionError) {
+        this.logger.error(`⚠️ Failed to record cancellation transaction for subscription ${subscription.id}:`, transactionError);
+      }
+
+      this.logger.log(`Successfully cancelled Razorpay subscription ${subscription.id} for organization ${organization.id}, downgraded to FREE`);
+
+    } catch (error) {
+      this.logger.error(`Failed to process Razorpay subscription cancellation: ${subscription.id}`, error);
+      throw error;
+    }
   }
 
   private async handleSubscriptionCompleted(payload: RazorpayWebhookPayload) {
-    if (!payload.data.subscription) return;
+    if (!payload.payload || !payload.payload.subscription) return;
 
-    const subscription = payload.data.subscription.entity;
+    const subscription = payload.payload.subscription.entity;
     this.logger.log(`Subscription completed: ${subscription.id}`);
 
-    // TODO: Handle completed subscription (end of billing cycle)
+    try {
+      // Find organization by Razorpay subscription ID
+      const organization = await this.subscriptionService.getOrganizationByRazorpaySubscriptionId(subscription.id);
+
+      if (!organization) {
+        this.logger.error(`Organization not found for Razorpay subscription: ${subscription.id}`);
+        return;
+      }
+
+      // Get current subscription to log completion
+      const currentSubscription = await this.subscriptionService.getSubscription(organization.id);
+
+      // Record subscription completion transaction
+      try {
+        await this.subscriptionService.createPaymentTransaction(
+          organization.id,
+          currentSubscription?.id || null,
+          'RAZORPAY',
+          `completion_${subscription.id}`,
+          0, // $0 for completion (no additional charge)
+          'INR',
+          'SUCCEEDED', // Completion is a successful operation
+          'MANUAL_ADJUSTMENT', // Completion is an adjustment
+          undefined, // paymentMethod
+          `Razorpay subscription completed - ${currentSubscription?.subscriptionTier || 'Plan'} billing cycle ended`,
+          undefined, // no failure reason for completion
+          payload // full payload as metadata
+        );
+
+        this.logger.log(`📝 Recorded completion transaction for Razorpay subscription: ${subscription.id}`);
+      } catch (transactionError) {
+        this.logger.error(`⚠️ Failed to record completion transaction for subscription ${subscription.id}:`, transactionError);
+      }
+
+      this.logger.log(`Successfully processed Razorpay subscription completion: ${subscription.id} for organization ${organization.id}`);
+
+      // Note: Subscription completion typically means the billing cycle has ended.
+      // The subscription may continue automatically unless cancelled.
+      // No immediate action needed beyond logging and transaction recording.
+
+    } catch (error) {
+      this.logger.error(`Failed to process Razorpay subscription completion: ${subscription.id}`, error);
+      throw error;
+    }
   }
 
   @Post('/paypal')
