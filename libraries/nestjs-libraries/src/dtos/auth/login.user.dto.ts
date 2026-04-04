@@ -29,4 +29,6 @@ export class LoginUserDto {
   @IsEmail()
   @IsDefined()
   email: string;
+
+  datafast_visitor_id: string;
 }

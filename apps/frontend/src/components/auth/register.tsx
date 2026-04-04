@@ -22,7 +22,7 @@ import { FarcasterProvider } from '@gitroom/frontend/components/auth/providers/f
 import dynamic from 'next/dynamic';
 import { WalletUiProvider } from '@gitroom/frontend/components/auth/providers/placeholder/wallet.ui.provider';
 import { useT } from '@gitroom/react/translation/get.transation.service.client';
-import { PasswordStrength } from '@gitroom/frontend/components/auth/password-strength';
+import useCookie from 'react-use-cookie';
 const WalletProvider = dynamic(
   () => import('@gitroom/frontend/components/auth/providers/wallet.provider'),
   {
@@ -95,13 +95,7 @@ export function RegisterAfter({
   const router = useRouter();
   const fireEvents = useFireEvents();
   const track = useTrack();
-  const searchParams = useSearchParams();
-
-  // Capture referral and plan params
-  const referral = searchParams.get('referral');
-  const plan = searchParams.get('plan');
-  const isFromReferral = referral === 'paid' && plan;
-
+  const [datafast_visitor_id] = useCookie('datafast_visitor_id');
   const isAfterProvider = useMemo(() => {
     return !!token && !!provider;
   }, [token, provider]);
@@ -118,17 +112,11 @@ export function RegisterAfter({
   const fetchData = useFetch();
   const onSubmit: SubmitHandler<Inputs> = async (data) => {
     setLoading(true);
-    const headers: Record<string, string> = {};
-    if (isFromReferral) {
-      headers['x-referral'] = 'paid';
-      headers['x-plan'] = plan!;
-    }
-
     await fetchData('/auth/register', {
       method: 'POST',
-      headers,
       body: JSON.stringify({
         ...data,
+        datafast_visitor_id,
       }),
     })
       .then(async (response) => {
@@ -159,98 +147,118 @@ export function RegisterAfter({
   };
   return (
     <FormProvider {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)}>
-        <div>
-          <h1 className="text-xl sm:text-3xl font-bold text-start mb-4">
-            {t('sign_up', 'Sign Up')}
-          </h1>
-        </div>
-        {!isAfterProvider &&
-          (!isGeneral ? (
-            <GithubProvider />
-          ) : (
-            <div className="gap-[5px] flex flex-col">
-              {genericOauth && isGeneral ? (
-                <OauthProvider />
+      <form className="flex-1 flex" onSubmit={form.handleSubmit(onSubmit)}>
+        <div className="flex flex-col flex-1">
+          <div>
+            <h1 className="text-[40px] font-[500] -tracking-[0.8px] text-start cursor-pointer">
+              {t('sign_up', 'Sign Up')}
+            </h1>
+          </div>
+          <div className="text-[14px] mt-[32px] mb-[12px]">
+            {t('continue_with', 'Continue With')}
+          </div>
+          <div className="flex flex-col">
+            {!isAfterProvider &&
+              (!isGeneral ? (
+                <GithubProvider />
               ) : (
-                <GoogleProvider />
-              )}
-              {!!neynarClientId && <FarcasterProvider />}
-              {/* {billingEnabled && <WalletProvider />} */}
-            </div>
-          ))}
-        {!isAfterProvider && (
-          <div className="h-[20px] mb-[24px] mt-[24px] relative">
-            <div className="absolute w-full h-[1px] bg-fifth top-[50%] -translate-y-[50%]" />
-            <div
-              className={`absolute z-[1] justify-center items-center w-full start-0 top-0 flex`}
-            >
-              <div className="bg-customColor15 px-[16px]">{t('or', 'OR')}</div>
+                <div className="gap-[8px] flex">
+                  {genericOauth && isGeneral ? (
+                    <OauthProvider />
+                  ) : (
+                    <GoogleProvider />
+                  )}
+                  {!!neynarClientId && <FarcasterProvider />}
+                  {billingEnabled && <WalletProvider />}
+                </div>
+              ))}
+            {!isAfterProvider && (
+              <div className="h-[20px] mb-[24px] mt-[24px] relative">
+                <div className="absolute w-full h-[1px] bg-fifth top-[50%] -translate-y-[50%]" />
+                <div
+                  className={`absolute z-[1] justify-center items-center w-full start-0 -top-[4px] flex`}
+                >
+                  <div className="px-[16px]">{t('or', 'or')}</div>
+                </div>
+              </div>
+            )}
+            <div className="flex flex-col gap-[12px]">
+              <div className="text-textColor">
+                {!isAfterProvider && (
+                  <>
+                    <Input
+                      label="Email"
+                      translationKey="label_email"
+                      {...form.register('email')}
+                      type="email"
+                      placeholder={t('email_address', 'Email Address')}
+                    />
+                    <Input
+                      label="Password"
+                      translationKey="label_password"
+                      {...form.register('password')}
+                      autoComplete="off"
+                      type="password"
+                      placeholder={t('label_password', 'Password')}
+                    />
+                  </>
+                )}
+                <Input
+                  label="Company"
+                  translationKey="label_company"
+                  {...form.register('company')}
+                  autoComplete="off"
+                  type="text"
+                  placeholder={t('label_company', 'Company')}
+                />
+              </div>
+              <div className={clsx('text-[12px]')}>
+                {t(
+                  'by_registering_you_agree_to_our',
+                  'By registering you agree to our'
+                )}
+                &nbsp;
+                <a
+                  href={`https://postiz.com/terms`}
+                  className="underline hover:font-bold"
+                  rel="nofollow"
+                >
+                  {t('terms_of_service', 'Terms of Service')}
+                </a>
+                &nbsp;
+                {t('and', 'and')}&nbsp;
+                <a
+                  href={`https://postiz.com/privacy`}
+                  rel="nofollow"
+                  className="underline hover:font-bold"
+                >
+                  {t('privacy_policy', 'Privacy Policy')}
+                </a>
+                &nbsp;
+              </div>
+              <div className="text-center mt-6">
+                <div className="w-full flex">
+                  <Button
+                    type="submit"
+                    className="flex-1 rounded-[10px] !h-[52px]"
+                    loading={loading}
+                  >
+                    {t('create_account', 'Create Account')}
+                  </Button>
+                </div>
+                <p className="mt-4 text-sm">
+                  {t('already_have_an_account', 'Already Have An Account?')}
+                  &nbsp;
+                  <Link
+                    href="/auth/login"
+                    className="underline  cursor-pointer"
+                  >
+                    {t('sign_in', 'Sign In')}
+                  </Link>
+                </p>
+              </div>
             </div>
           </div>
-        )}
-        <div className="text-textColor">
-          {!isAfterProvider && (
-            <>
-              <Input
-                label="Email"
-                {...form.register('email')}
-                type="email"
-                placeholder="Email Address"
-              />
-              <Input
-                label="Password"
-                {...form.register('password')}
-                autoComplete="off"
-                type="password"
-                placeholder="Password"
-              />
-              <PasswordStrength fieldName="password" />
-            </>
-          )}
-          <Input
-            label="Company"
-            {...form.register('company')}
-            autoComplete="off"
-            type="text"
-            placeholder="Company"
-          />
-        </div>
-        <div className={clsx('text-[12px]')}>
-          {t(
-            'by_registering_you_agree_to_our',
-            'By registering you agree to our'
-          )}&nbsp;
-          <a
-            href={`https://postnify.com/terms-conditions`}
-            className="underline hover:no-underline hover:text-primary"
-          >
-            {t('terms_of_service', 'Terms of Service')}
-          </a>&nbsp;
-          {t('and', 'and')}&nbsp;
-          <a
-            href={`https://postnify.com/privacy-policy`}
-            className="underline hover:no-underline hover:text-primary"
-          >
-            {t('privacy_policy', 'Privacy Policy')}
-          </a>&nbsp;
-        </div>
-        <div className="text-center mt-6">
-          <div className="w-full flex">
-            <Button
-              type="submit"
-              className="flex-1 rounded-[4px] bg-primary"
-              loading={loading}
-            >
-              {t('create_account', 'Create Account')}
-            </Button>
-          </div>
-          <p className="mt-4 text-sm">
-            {t('already_have_an_account', 'Already Have An Account?')}&nbsp;
-            <Link href="/auth/login" className="underline  hover:no-underline hover:text-primary cursor-pointer">
-              {t('sign_in', 'Sign In')}
-            </Link>
-          </p>
         </div>
       </form>
     </FormProvider>

@@ -6,7 +6,7 @@ import { AddTeamMemberDto } from '@gitroom/nestjs-libraries/dtos/settings/add.te
 import { AuthService } from '@gitroom/helpers/auth/auth.service';
 import dayjs from 'dayjs';
 import { makeId } from '@gitroom/nestjs-libraries/services/make.is';
-import { Organization } from '@prisma/client';
+import { Organization, ShortLinkPreference } from '@prisma/client';
 import { AutopostService } from '@gitroom/nestjs-libraries/database/prisma/autopost/autopost.service';
 import { SubscriptionService } from '@gitroom/nestjs-libraries/database/prisma/subscriptions/subscription.service';
 
@@ -33,6 +33,10 @@ export class OrganizationService {
 
   async getCount() {
     return this._organizationRepository.getCount();
+  }
+
+  async createMaxUser(id: string, name: string, saasName: string, email: string) {
+    return this._organizationRepository.createMaxUser(id, name, saasName, email);
   }
 
   addUserToOrg(
@@ -66,6 +70,10 @@ export class OrganizationService {
 
   getTeam(orgId: string) {
     return this._organizationRepository.getTeam(orgId);
+  }
+
+  async setStreak(organizationId: string, type: 'start' | 'end') {
+    return this._organizationRepository.setStreak(organizationId, type);
   }
 
   getOrgByCustomerId(customerId: string) {
@@ -125,6 +133,17 @@ export class OrganizationService {
     return this._organizationRepository.disableOrEnableNonSuperAdminUsers(
       orgId,
       disable
+    );
+  }
+
+  getShortlinkPreference(orgId: string) {
+    return this._organizationRepository.getShortlinkPreference(orgId);
+  }
+
+  updateShortlinkPreference(orgId: string, shortlink: ShortLinkPreference) {
+    return this._organizationRepository.updateShortlinkPreference(
+      orgId,
+      shortlink
     );
   }
 }

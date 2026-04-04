@@ -31,6 +31,7 @@ import { Autopost } from '@gitroom/frontend/components/autopost/autopost';
 import { useT } from '@gitroom/react/translation/get.transation.service.client';
 import { SVGLine } from '@gitroom/frontend/components/launches/launches.component';
 import { GlobalSettings } from '@gitroom/frontend/components/settings/global.settings';
+import { ApprovedAppsComponent } from '@gitroom/frontend/components/approved-apps/approved-apps.component';
 export const SettingsPopup: FC<{
   getRef?: Ref<any>;
 }> = (props) => {
@@ -76,8 +77,7 @@ export const SettingsPopup: FC<{
     if (getRef) {
       return;
     }
-    toast.show('Profile updated');
-    swr.mutate('/marketplace/account');
+    toast.show(t('profile_updated', 'Profile updated'));
     close();
   }, []);
 
@@ -104,8 +104,9 @@ export const SettingsPopup: FC<{
       arr.push({ tab: 'signatures', label: t('signatures', 'Signatures') });
     }
     if (user?.tier?.public_api && isGeneral && showLogout) {
-      arr.push({ tab: 'api', label: t('public_api', 'Public API') });
+      arr.push({ tab: 'api', label: t('developers', 'Developers') });
     }
+    arr.push({ tab: 'approved_apps', label: t('approved_apps', 'Approved Apps') });
 
     return arr;
   }, [user, isGeneral, showLogout, t]);
@@ -116,7 +117,7 @@ export const SettingsPopup: FC<{
 
   return (
     <>
-      <div className="bg-newBgColorInner p-[20px] flex flex-col transition-all w-[215px] min-w-[215px]">
+      <div className="bg-newBgColorInner p-[20px] flex flex-col transition-all w-[260px]">
         <div className="flex flex-1 flex-col gap-[15px]">
           {list.map(({ tab: tabKey, label }) => (
             <div
@@ -147,7 +148,7 @@ export const SettingsPopup: FC<{
           )}
         </div>
       </div>
-      <div className="bg-newBgColorInner flex-1 flex-col flex p-[20px] gap-[12px] max-w-[calc(100%-215px)]">
+      <div className="bg-newBgColorInner flex-1 flex-col flex p-[20px] gap-[12px]">
         <FormProvider {...form}>
           <form onSubmit={form.handleSubmit(submit)}>
             {!!getRef && (
@@ -202,6 +203,12 @@ export const SettingsPopup: FC<{
                     <PublicComponent />
                   </div>
                 )}
+
+              {tab === 'approved_apps' && (
+                <div>
+                  <ApprovedAppsComponent />
+                </div>
+              )}
             </div>
           </form>
         </FormProvider>

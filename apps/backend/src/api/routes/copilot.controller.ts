@@ -20,7 +20,7 @@ import { SubscriptionService } from '@gitroom/nestjs-libraries/database/prisma/s
 import { MastraAgent } from '@ag-ui/mastra';
 import { MastraService } from '@gitroom/nestjs-libraries/chat/mastra.service';
 import { Request, Response } from 'express';
-import { RuntimeContext } from '@mastra/core/di';
+import { RequestContext } from '@mastra/core/di';
 import { CheckPolicies } from '@gitroom/backend/services/auth/permissions/permissions.ability';
 import { AuthorizationActions, Sections } from '@gitroom/backend/services/auth/permissions/permission.exception.class';
 
@@ -43,29 +43,8 @@ export class CopilotController {
       process.env.OPENAI_API_KEY === ''
     ) {
       Logger.warn('OpenAI API key not set, chat functionality will not work');
-      Logger.error('OPENAI_API_KEY environment variable is missing or empty');
-      throw new Error('OpenAI API key not configured');
+      return;
     }
-    Logger.log('OpenAI API key is configured, proceeding with request');
-
-    // TEMPORARILY DISABLED: Track AI image usage through subscription service
-    // await this._subscriptionService.useFeature(org, 'ai_images', async () => {
-    //   const copilotRuntimeHandler = copilotRuntimeNestEndpoint({
-    //     endpoint: '/copilot/chat',
-    //     runtime: new CopilotRuntime(),
-    //     serviceAdapter: new OpenAIAdapter({
-    //       model:
-    //         // @ts-ignore
-    //         req?.body?.variables?.data?.metadata?.requestType ===
-    //         'TextareaCompletion'
-    //           ? 'gpt-4o-mini'
-    //           : 'gpt-4.1',
-    //     }),
-    //   });
-
-    //   // @ts-ignore
-    //   return copilotRuntimeHandler(req, res);
-    // });
 
     const copilotRuntimeHandler = copilotRuntimeNodeHttpEndpoint({
       endpoint: '/copilot/chat',
@@ -93,20 +72,19 @@ export class CopilotController {
       return;
     }
     const mastra = await this._mastraService.mastra();
-    const runtimeContext = new RuntimeContext<ChannelsContext>();
-    runtimeContext.set(
+    const requestContext = new RequestContext<ChannelsContext>();
+    requestContext.set(
       'integrations',
       req?.body?.variables?.properties?.integrations || []
     );
 
-    runtimeContext.set('organization', JSON.stringify(organization));
-    runtimeContext.set('ui', 'true');
+    requestContext.set('organization', JSON.stringify(organization));
+    requestContext.set('ui', 'true');
 
     const agents = MastraAgent.getLocalAgents({
       resourceId: organization.id,
       mastra,
-      // @ts-ignore
-      runtimeContext,
+      requestContext: requestContext as any,
     });
 
     const runtime = new CopilotRuntime({
@@ -145,7 +123,7 @@ export class CopilotController {
     const mastra = await this._mastraService.mastra();
     const memory = await mastra.getAgent('postiz').getMemory();
     try {
-      return await memory.query({
+      return await memory.recall({
         resourceId: organization.id,
         threadId,
       });
@@ -158,14 +136,12 @@ export class CopilotController {
   @CheckPolicies([AuthorizationActions.Create, Sections.AI])
   async getList(@GetOrgFromRequest() organization: Organization) {
     const mastra = await this._mastraService.mastra();
-    // @ts-ignore
     const memory = await mastra.getAgent('postiz').getMemory();
-    const list = await memory.getThreadsByResourceIdPaginated({
-      resourceId: organization.id,
+    const list = await memory.listThreads({
+      filter: { resourceId: organization.id },
       perPage: 100000,
       page: 0,
-      orderBy: 'createdAt',
-      sortDirection: 'DESC',
+      orderBy: { field: 'createdAt', direction: 'DESC' },
     });
 
     return {

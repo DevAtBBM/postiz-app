@@ -1,7 +1,7 @@
-import { Body, Controller, Get, Param, Post, Req, Query } from '@nestjs/common';
+import { Body, Controller, Get, HttpException, Param, Post, Query, Req } from '@nestjs/common';
 import * as crypto from 'crypto';
 import { SubscriptionService } from '@gitroom/nestjs-libraries/database/prisma/subscriptions/subscription.service';
-import { PayPalService } from '@gitroom/nestjs-libraries/services/paypal.service';
+import { StripeService } from '@gitroom/nestjs-libraries/services/stripe.service';
 import { RazorpayService } from '@gitroom/nestjs-libraries/services/razorpay.service';
 import { GetOrgFromRequest } from '@gitroom/nestjs-libraries/user/org.from.request';
 import { Organization, User } from '@prisma/client';
@@ -11,35 +11,48 @@ import { GetUserFromRequest } from '@gitroom/nestjs-libraries/user/user.from.req
 import { NotificationService } from '@gitroom/nestjs-libraries/database/prisma/notifications/notification.service';
 import { Request } from 'express';
 import { Nowpayments } from '@gitroom/nestjs-libraries/crypto/nowpayments';
+import { AuthService } from '@gitroom/helpers/auth/auth.service';
 
 @ApiTags('Billing')
 @Controller('/billing')
 export class BillingController {
   constructor(
     private _subscriptionService: SubscriptionService,
-    private _paypalService: PayPalService,
+    private _stripeService: StripeService,
     private _razorpayService: RazorpayService,
     private _notificationService: NotificationService,
     private _nowpayments: Nowpayments
-  ) {
-    console.log('BillingController initialized with PayPal and Razorpay Service integration');
-  }
+  ) {}
 
   @Get('/check/:id')
   async checkId(
     @GetOrgFromRequest() org: Organization,
     @Param('id') body: string
   ) {
-    // Mock PayPal subscription check
     return {
-      status: 'ACTIVE', // Mock success status
+      status: await this._stripeService.checkSubscription(org.id, body),
     };
+  }
+
+  @Get('/check-discount')
+  async checkDiscount(@GetOrgFromRequest() org: Organization) {
+    return {
+      offerCoupon: !(await this._stripeService.checkDiscount(org.paymentId))
+        ? false
+        : AuthService.signJWT({ discount: true }),
+    };
+  }
+
+  @Post('/apply-discount')
+  async applyDiscount(@GetOrgFromRequest() org: Organization) {
+    await this._stripeService.applyDiscount(org.paymentId);
   }
 
   @Post('/finish-trial')
   async finishTrial(@GetOrgFromRequest() org: Organization) {
-    // Mock PayPal trial completion
-    console.log(`PayPal: Finishing trial for org ${org.id}`);
+    try {
+      await this._stripeService.finishTrial(org.paymentId);
+    } catch (err) {}
     return {
       finish: true,
     };
@@ -52,154 +65,65 @@ export class BillingController {
     };
   }
 
-  @Post('/subscribe')
-  async subscribe(
+  @Post('/embedded')
+  embedded(
     @GetOrgFromRequest() org: Organization,
     @GetUserFromRequest() user: User,
-    @Body() body: BillingSubscribeDto & { provider?: 'paypal' | 'razorpay' },
+    @Body() body: BillingSubscribeDto,
     @Req() req: Request
-  ): Promise<any> {
-    try {
-      const uniqueId = req?.cookies?.track || `${org.id}_${Date.now()}`;
-      const provider = body.provider || 'paypal'; // Default to PayPal for backward compatibility
+  ) {
+    const uniqueId = req?.cookies?.track;
+    return this._stripeService.embedded(
+      uniqueId,
+      org.id,
+      user.id,
+      body,
+      org.allowTrial
+    );
+  }
 
-      let subscriptionResult: any;
-      let serviceName: string;
+  @Post('/subscribe')
+  subscribe(
+    @GetOrgFromRequest() org: Organization,
+    @GetUserFromRequest() user: User,
+    @Body() body: BillingSubscribeDto & { provider?: 'stripe' | 'razorpay' },
+    @Req() req: Request
+  ) {
+    const uniqueId = req?.cookies?.track;
 
-      if (provider === 'razorpay') {
-        // Use RazorpayService to create subscription
-        subscriptionResult = await this._razorpayService.subscribe(
-          uniqueId,
-          org.id,
-          user.id,
-          body,
-          false // allowTrial could be derived from org data or body
-        );
-        serviceName = 'Razorpay';
-      } else {
-        // Use PayPalService to create subscription (default)
-        subscriptionResult = await this._paypalService.subscribe(
-          uniqueId,
-          org.id,
-          user.id,
-          body,
-          false // allowTrial could be derived from org data or body
-        );
-        serviceName = 'PayPal';
-      }
-
-      console.log(`${serviceName} subscription created for org ${org.id}, plan: ${body.billing}`);
-
-      // Format response to match frontend expectations
-      let url: string | null = null;
-
-      if (provider === 'razorpay') {
-        // For Razorpay, use modal checkout instead of hosted redirect
-        // The frontend will handle opening the Razorpay modal
-        url = null;
-      } else {
-        // PayPal returns links array
-        const approvalLink = subscriptionResult.links?.find((link: any) => link.rel === 'approve');
-        url = approvalLink ? approvalLink.href : null;
-      }
-
-      // Create database mapping for webhook lookup
-      try {
-        if (provider === 'razorpay') {
-          // For Razorpay, we need to create a similar mapping
-          await this._subscriptionService.createPayPalSubscription(
-            false, // isTrailing
-            subscriptionResult.id, // Use Razorpay subscription ID as identifier
-            subscriptionResult.customer_id || subscriptionResult.id, // customerId
-            body.billing as any, // billing tier
-            body.period || 'MONTHLY', // period
-            null, // cancelAt
-            { id: org.id } // organization
-          );
-        } else {
-          // PayPal mapping
-          await this._subscriptionService.createPayPalSubscription(
-            false, // isTrailing
-            subscriptionResult.id, // Use PayPal subscription ID as identifier
-            subscriptionResult.id, // customerId
-            body.billing as any, // billing tier
-            body.period || 'MONTHLY', // period
-            null, // cancelAt
-            { id: org.id } // organization
-          );
-        }
-
-        // Update organization's payment provider and ID for future reference
-        await this._subscriptionService.updateCustomerId(org.id, subscriptionResult.id);
-
-        console.log(`✅ Successfully created database mapping for ${serviceName} subscription ${subscriptionResult.id} -> org ${org.id}`);
-      } catch (error) {
-        console.error(`❌ Failed to create database mapping for ${serviceName} subscription ${subscriptionResult.id} -> org ${org.id}:`, error instanceof Error ? error.message : String(error));
-
-        // Don't fail the entire request - subscription was created successfully
-        console.warn(`⚠️  ${serviceName} subscription created but database mapping failed - webhook will try to find organization by other means`);
-      }
-
-      return {
-        url: url, // Payment provider approval/checkout URL for frontend redirect
-        subscriptionId: subscriptionResult.id, // Subscription ID
-        provider: provider, // Payment provider used
-        subscription: subscriptionResult, // Full response for reference
-        ...subscriptionResult // Include all original fields
-      };
-    } catch (error) {
-      console.error('Error creating subscription:', error);
-      throw error;
+    if (body.provider === 'razorpay') {
+      return this._razorpayService.subscribe(
+        uniqueId,
+        org.id,
+        user.id,
+        body,
+        org.allowTrial
+      );
     }
+
+    return this._stripeService.subscribe(
+      uniqueId,
+      org.id,
+      user.id,
+      body,
+      org.allowTrial
+    );
   }
 
   @Get('/portal')
   async modifyPayment(@GetOrgFromRequest() org: Organization) {
-    // Mock PayPal billing portal
-    console.log(`PayPal: Creating billing portal for org ${org.id}`);
+    const customer = await this._stripeService.getCustomerByOrganizationId(
+      org.id
+    );
+    const { url } = await this._stripeService.createBillingPortalLink(customer);
     return {
-      portal: `https://www.paypal.com/myaccount?billing_org=${org.id}`,
+      portal: url,
     };
   }
 
   @Get('/')
-  async getCurrentBilling(@GetOrgFromRequest() org: Organization) {
-    let subscription = await this._subscriptionService.getSubscriptionByOrganizationId(org.id);
-
-    // If no subscription exists, automatically create a FREE plan subscription
-    if (!subscription) {
-      console.log(`Auto-creating FREE subscription for organization ${org.id} (${org.name})`);
-
-      try {
-        // Create a FREE subscription automatically
-        const result = await this._subscriptionService.createFreeSubscription(org.id);
-
-        if (result && !(result as any).mock) {
-          // Real subscription was created, fetch it
-          subscription = await this._subscriptionService.getSubscriptionByOrganizationId(org.id);
-        } else {
-          // Mock subscription was returned, use it as-is
-          subscription = result as any;
-        }
-      } catch (error) {
-        console.error(`Failed to create FREE subscription for org ${org.id}:`, error);
-        // Fallback mock subscription if creation fails
-        subscription = {
-          id: `mock-${org.id}`,
-          organizationId: org.id,
-          subscriptionTier: 'FREE' as const,
-          period: 'MONTHLY' as const,
-          totalChannels: 1,
-          isLifetime: false,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          // Add mock flag for frontend handling
-          ...{ isMock: true }
-        } as any;
-      }
-    }
-
-    return subscription;
+  getCurrentBilling(@GetOrgFromRequest() org: Organization) {
+    return this._subscriptionService.getSubscriptionByOrganizationId(org.id);
   }
 
   @Post('/cancel')
@@ -208,68 +132,22 @@ export class BillingController {
     @GetUserFromRequest() user: User,
     @Body() body: { feedback: string }
   ) {
-    // Get current subscription
-    const currentSubscription = await this._subscriptionService.getSubscriptionByOrganizationId(org.id);
+    await this._notificationService.sendEmail(
+      process.env.EMAIL_FROM_ADDRESS,
+      'Subscription Cancelled',
+      `Organization ${org.name} has cancelled their subscription because: ${body.feedback}`,
+      user.email
+    );
 
-    if (!currentSubscription) {
-      throw new Error('No active subscription found');
-    }
-
-    // Check if subscription is already cancelled (has cancelAt set)
-    if (currentSubscription.cancelAt) {
-      // Reactivate the subscription - clear the cancelAt date
-      await this._subscriptionService.updateSubscriptionCancelAt(org.id, null);
-
-      console.log(`PayPal: Reactivating subscription for org ${org.id}`);
-
-      // Send reactivation notification
-      await this._notificationService.sendEmail(
-        process.env.EMAIL_FROM_ADDRESS,
-        'Subscription Reactivated',
-        `Organization ${org.name} has reactivated their subscription.`,
-        user.email
-      );
-
-      return { cancel_at: null, message: 'Subscription reactivated successfully' };
-    } else {
-      // Cancel the subscription - set cancelAt to end of current period
-      const cancelAt = currentSubscription.currentPeriodEnd || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-      await this._subscriptionService.updateSubscriptionCancelAt(org.id, cancelAt);
-
-      console.log(`PayPal: Cancelling subscription for org ${org.id}, scheduled to end at ${cancelAt}`);
-
-      // Send cancellation notification
-      await this._notificationService.sendEmail(
-        process.env.EMAIL_FROM_ADDRESS,
-        'Subscription Cancelled',
-        `Organization ${org.name} has cancelled their subscription because: ${body.feedback}`,
-        user.email
-      );
-
-      return { cancel_at: cancelAt, message: 'Subscription cancelled successfully' };
-    }
+    return this._stripeService.setToCancel(org.id);
   }
 
   @Post('/prorate')
-  async prorate(
+  prorate(
     @GetOrgFromRequest() org: Organization,
     @Body() body: BillingSubscribeDto
   ) {
-    // Mock PayPal proration calculation
-    console.log(`PayPal: Calculating proration for org ${org.id}, new plan: ${body.billing}, period: ${body?.period || 'MONTHLY'}`);
-
-    // Get prorated amount from subscription service
-    const period = body?.period || 'MONTHLY';
-    const proratedAmount = await this._subscriptionService.calculateProrateAmount(
-      body.billing as 'STANDARD' | 'PRO' | 'ULTIMATE',
-      period
-    );
-
-    return {
-      price: proratedAmount,
-      proratedAmount,
-      nextBillingDate: new Date(Date.now() + (period === 'YEARLY' ? 365 : 30) * 24 * 60 * 60 * 1000)
-    };
+    return this._stripeService.prorate(org.id, body);
   }
 
   @Post('/lifetime')
@@ -277,17 +155,49 @@ export class BillingController {
     @GetOrgFromRequest() org: Organization,
     @Body() body: { code: string }
   ) {
-    // Mock PayPal lifetime deal
-    console.log(`PayPal: Processing lifetime deal for org ${org.id} with code ${body.code}`);
-    return {
-      success: true,
-      message: 'Lifetime deal activated successfully with PayPal'
-    };
+    return this._stripeService.lifetimeDeal(org.id, body.code);
+  }
+
+  @Get('/charges')
+  async getCharges(
+    @GetUserFromRequest() user: User,
+    @GetOrgFromRequest() org: Organization
+  ) {
+    if (!user.isSuperAdmin) {
+      throw new HttpException('Unauthorized', 400);
+    }
+
+    return this._stripeService.getCharges(org.id);
+  }
+
+  @Post('/refund-charges')
+  async refundCharges(
+    @GetUserFromRequest() user: User,
+    @GetOrgFromRequest() org: Organization,
+    @Body() body: { chargeIds: string[] }
+  ) {
+    if (!user.isSuperAdmin) {
+      throw new HttpException('Unauthorized', 400);
+    }
+
+    return this._stripeService.refundCharges(org.id, body.chargeIds);
+  }
+
+  @Post('/cancel-subscription')
+  async cancelSubscription(
+    @GetUserFromRequest() user: User,
+    @GetOrgFromRequest() org: Organization
+  ) {
+    if (!user.isSuperAdmin) {
+      throw new HttpException('Unauthorized', 400);
+    }
+
+    return this._stripeService.cancelSubscription(org.id);
   }
 
   @Post('/add-subscription')
   async addSubscription(
-    @Body() body: { subscription: 'FREE' | 'STANDARD' | 'PRO' },
+    @Body() body: { subscription: string },
     @GetUserFromRequest() user: User,
     @GetOrgFromRequest() org: Organization
   ) {
@@ -298,7 +208,7 @@ export class BillingController {
     await this._subscriptionService.addSubscription(
       org.id,
       user.id,
-      body.subscription as any
+      body.subscription
     );
   }
 
@@ -307,348 +217,8 @@ export class BillingController {
     return this._nowpayments.createPaymentPage(org.id);
   }
 
-  // ================================================
-  // NEW SUBSCRIPTION BILLING ENDPOINTS
-  // ================================================
+  // ── Razorpay-specific endpoints ──────────────────────────────────────────
 
-  @Get('/usage')
-  async getUsageReport(@GetOrgFromRequest() org: Organization) {
-    return this._subscriptionService.getUsageReport(org.id);
-  }
-
-  @Post('/check-limits')
-  async validateSubscriptionUpgrade(
-    @GetOrgFromRequest() org: Organization,
-    @Body() body: { newTier: string; currentIntegrations: any[] }
-  ) {
-    const subscription = await this._subscriptionService.getSubscriptionByOrganizationId(org.id);
-    return this._subscriptionService.validateSubscriptionUpgrade(
-      subscription,
-      body.newTier as any,
-      body.currentIntegrations
-    );
-  }
-
-  // ================================================
-  // ADMIN ENDPOINTS (Super Admin Only)
-  // ================================================
-
-  @Get('/admin/stats')
-  async getBillingStats(@GetUserFromRequest() user: User) {
-    if (!user.isSuperAdmin) {
-      throw new Error('Unauthorized');
-    }
-
-    try {
-      // Return mock admin stats for now - would implement real ones later
-      return {
-        totalSubscriptions: 125,
-        activeSubscriptions: 118,
-        canceledSubscriptions: 7,
-        totalRevenue: 125000, // $1250 in cents
-        monthlyRecurringRevenue: 45000, // $450 in cents/month
-        churnRate: 5.8, // 5.8% churn rate
-        planDistribution: {
-          FREE: 35,
-          STANDARD: 45,
-          TEAM: 30,
-          PRO: 15,
-        }
-      };
-    } catch (error) {
-      throw new Error('Failed to fetch admin statistics');
-    }
-  }
-
-  @Get('/admin/subscriptions')
-  async getSubscriptionsAdmin(
-    @GetUserFromRequest() user: User,
-    @Query() query: { limit?: number; offset?: number; search?: string; status?: string }
-  ) {
-    if (!user.isSuperAdmin) {
-      throw new Error('Unauthorized');
-    }
-
-    try {
-      // Return mock subscription data for now - would implement real query later
-      const mockSubscriptions = [
-        {
-          id: 'sub-1',
-          organizationName: 'Tech Startup Ltd',
-          userEmail: 'admin@techstartup.com',
-          plan: 'PRO',
-          status: 'ACTIVE',
-          billingPeriod: 'MONTHLY' as const,
-          currentPeriodStart: '2024-01-01T00:00:00Z',
-          currentPeriodEnd: '2024-02-01T00:00:00Z',
-          amount: 4900, // $49
-          paymentMethod: 'razorpay',
-        },
-        {
-          id: 'sub-2',
-          organizationName: 'Marketing Agency',
-          userEmail: 'billing@marketing.com',
-          plan: 'TEAM',
-          status: 'ACTIVE',
-          billingPeriod: 'YEARLY' as const,
-          currentPeriodStart: '2024-01-15T00:00:00Z',
-          currentPeriodEnd: '2025-01-15T00:00:00Z',
-          amount: 37400, // $374
-          paymentMethod: 'stripe',
-        },
-        {
-          id: 'sub-3',
-          organizationName: 'Small Business Inc',
-          userEmail: 'owner@smallbiz.com',
-          plan: 'STANDARD',
-          status: 'CANCELLED',
-          cancelAt: '2024-03-01T00:00:00Z',
-          billingPeriod: 'MONTHLY' as const,
-          currentPeriodStart: '2024-02-01T00:00:00Z',
-          currentPeriodEnd: '2024-03-01T00:00:00Z',
-          amount: 2900, // $29
-          paymentMethod: 'paypal',
-        }
-      ];
-
-      return mockSubscriptions.slice(0, Math.min(query.limit || 50, 50));
-    } catch (error) {
-      throw new Error('Failed to fetch subscriptions');
-    }
-  }
-
-  @Post('/admin/subscriptions/:id/cancel')
-  async cancelSubscriptionAdmin(
-    @GetUserFromRequest() user: User,
-    @Param('id') subscriptionId: string
-  ) {
-    if (!user.isSuperAdmin) {
-      throw new Error('Unauthorized');
-    }
-
-    try {
-      // For now, just return success - would implement actual cancellation logic
-      return { success: true, message: 'Subscription cancelled successfully' };
-    } catch (error) {
-      throw new Error('Failed to cancel subscription');
-    }
-  }
-
-  @Get('/transactions')
-  async getTransactionHistory(
-    @GetOrgFromRequest() org: Organization,
-    @Query() query: { limit?: number; offset?: number }
-  ) {
-    try {
-      const limit = query.limit || 20;
-      const offset = query.offset || 0;
-
-      console.log(`📊 Getting transaction history for organization ${org.id}, limit: ${limit}, offset: ${offset}`);
-
-      const transactions = await this._subscriptionService.getTransactionHistory(org.id, limit);
-
-      return transactions.map(transaction => ({
-        id: transaction.id,
-        amount: transaction.amount,
-        currency: transaction.currency,
-        status: transaction.status,
-        provider: transaction.provider,
-        providerTransactionId: transaction.providerTransactionId,
-        paymentMethod: transaction.paymentMethod,
-        type: transaction.type,
-        description: transaction.description,
-        failureReason: transaction.failureReason,
-        createdAt: transaction.createdAt,
-        processedAt: transaction.processedAt,
-        subscription: transaction.subscription ? {
-          id: transaction.subscription.id,
-          subscriptionTier: transaction.subscription.subscriptionTier,
-          period: transaction.subscription.period,
-        } : null,
-      }));
-    } catch (error) {
-      console.error('Error fetching transaction history:', error);
-      throw new Error('Failed to fetch transaction history');
-    }
-  }
-
-  @Get('/failed-payments')
-  async getFailedPayments(@GetOrgFromRequest() org: Organization) {
-    try {
-      // Get failed payment transactions for this organization
-      const failedPayments = await this._subscriptionService.getFailedPaymentsByOrganization(org.id);
-
-      return failedPayments.map(payment => ({
-        id: payment.id,
-        amount: payment.amount,
-        currency: payment.currency,
-        status: payment.status,
-        provider: payment.provider,
-        providerTransactionId: payment.providerTransactionId,
-        paymentMethod: payment.paymentMethod,
-        type: payment.type,
-        description: payment.description,
-        failureReason: payment.failureReason,
-        createdAt: payment.createdAt,
-        processedAt: payment.processedAt,
-        subscription: payment.subscription ? {
-          id: payment.subscription.id,
-          subscriptionTier: payment.subscription.subscriptionTier,
-        } : null,
-      }));
-    } catch (error) {
-      console.error('Error fetching failed payments:', error);
-      throw new Error('Failed to fetch failed payments');
-    }
-  }
-
-  @Post('/retry-payment')
-  async retryPayment(
-    @GetOrgFromRequest() org: Organization,
-    @Body() body: { paymentId: string }
-  ) {
-    try {
-      // Logic to retry the failed payment
-      // This would integrate with your payment provider to retry the charge
-      const result = await this._subscriptionService.retryFailedPayment(org.id, body.paymentId);
-
-      // Send success notification
-      await this.notifyPaymentRetry(org, body.paymentId);
-
-      return { success: true, message: 'Payment retry initiated' };
-    } catch (error) {
-      console.error('Error retrying payment:', error);
-      throw new Error('Failed to retry payment');
-    }
-  }
-
-  @Post('/report-billing-issue')
-  async reportBillingIssue(
-    @GetOrgFromRequest() org: Organization,
-    @GetUserFromRequest() user: User,
-    @Body() body: {
-      issueType: 'PAYMENT_FAILED' | 'SERVICE_PROBLEM' | 'ACCOUNT_QUESTION' | 'OTHER';
-      description: string;
-      severity: 'LOW' | 'MEDIUM' | 'HIGH';
-    }
-  ) {
-    try {
-      // Send billing issue email
-      const subject = `Billing Issue Report - ${org.name}`;
-      const emailBody = `
-        Billing Issue Report
-
-        Organization: ${org.name}
-        Organization ID: ${org.id}
-        User: ${user.name || user.email} (${user.email})
-
-        Issue Type: ${body.issueType}
-        Severity: ${body.severity}
-        Description: ${body.description}
-
-        Reported at: ${new Date().toISOString()}
-      `;
-
-      await this._notificationService.sendEmail(
-        process.env.EMAIL_FROM_ADDRESS,
-        subject,
-        emailBody,
-        process.env.SUPPORT_EMAIL_ADDRESS || process.env.EMAIL_FROM_ADDRESS
-      );
-
-      // Send confirmation to user
-      const userConfirmation = `
-        Dear ${user.name || 'User'},
-
-        Thank you for reporting a billing issue. Our support team will review your case and respond within 24 hours.
-
-        Issue Details:
-        - Type: ${body.issueType}
-        - Severity: ${body.severity}
-
-        Best regards,
-        Gitroom Support Team
-      `;
-
-      await this._notificationService.sendEmail(
-        process.env.EMAIL_FROM_ADDRESS,
-        'Billing Issue Received - Reference #' + Math.random().toString(36).substr(2, 6).toUpperCase(),
-        userConfirmation,
-        user.email
-      );
-
-      return {
-        success: true,
-        message: 'Billing issue reported successfully. You will receive a response within 24 hours.'
-      };
-    } catch (error) {
-      console.error('Error reporting billing issue:', error);
-      throw new Error('Failed to report billing issue');
-    }
-  }
-
-  private async notifyPaymentRetry(org: Organization, paymentId: string) {
-    // Send payment retry notification
-    await this._notificationService.sendEmail(
-      process.env.EMAIL_FROM_ADDRESS,
-      'Payment Retry Initiated',
-      `Payment retry has been initiated for ${org.name} (Payment ID: ${paymentId})`,
-      process.env.PAYMENT_NOTIFICATION_EMAIL || process.env.EMAIL_FROM_ADDRESS
-    );
-  }
-
-  @Get('/admin/payments')
-  async getPaymentTransactionsAdmin(
-    @GetUserFromRequest() user: User,
-    @Query() query: { limit?: number; offset?: number; status?: string; provider?: string }
-  ) {
-    if (!user.isSuperAdmin) {
-      throw new Error('Unauthorized');
-    }
-
-    try {
-      // Get all payment transactions from database
-      const payments = await this._subscriptionService.getAllPaymentTransactions(
-        query.limit || 50,
-        query.offset || 0,
-        query.status as any,
-        query.provider as any
-      );
-
-      // Return formatted payment data
-      return payments.map(payment => ({
-        id: payment.id,
-        organizationId: payment.organizationId,
-        organizationName: payment.organization?.name || 'Unknown Organization',
-        organization: payment.organization ? {
-          id: payment.organization.id,
-          name: payment.organization.name
-        } : null,
-        subscriptionId: payment.subscriptionId,
-        subscription: payment.subscription ? {
-          id: payment.subscription.id,
-          subscriptionTier: payment.subscription.subscriptionTier,
-          period: payment.subscription.period,
-        } : null,
-        amount: payment.amount,
-        currency: payment.currency,
-        status: payment.status,
-        provider: payment.provider,
-        providerTransactionId: payment.providerTransactionId,
-        paymentMethod: payment.paymentMethod,
-        type: payment.type,
-        description: payment.description,
-        failureReason: payment.failureReason,
-        createdAt: payment.createdAt,
-        processedAt: payment.processedAt,
-      }));
-    } catch (error) {
-      console.error('Error fetching payment transactions:', error);
-      throw new Error('Failed to fetch payment transactions');
-    }
-  }
-
-  // Test endpoint to create a sample transaction (for debugging)
   @Post('/verify-payment')
   async verifyRazorpayPayment(
     @Body() body: {
@@ -661,134 +231,67 @@ export class BillingController {
       amount: number;
     }
   ) {
-    try {
-      console.log(`🔐 Verifying Razorpay payment for org ${body.organizationId}`);
+    // Verify payment signature
+    const sign = body.razorpay_order_id + '|' + body.razorpay_payment_id;
+    const expectedSign = crypto
+      .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET!)
+      .update(sign.toString())
+      .digest('hex');
 
-      // Verify payment signature (security check)
-      const sign = body.razorpay_order_id + '|' + body.razorpay_payment_id;
-      const expectedSign = crypto
-        .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET!)
-        .update(sign.toString())
-        .digest('hex');
-
-      if (body.razorpay_signature !== expectedSign) {
-        throw new Error('Payment signature verification failed');
-      }
-
-      // Payment is verified, now create/update subscription
-      const subscriptionResult = await this._subscriptionService.createOrUpdateSubscription(
-        false, // isTrailing
-        body.razorpay_payment_id, // identifier (use payment ID)
-        body.razorpay_payment_id, // customerId
-        // Get channel count based on plan
-        body.planName === 'STANDARD' ? 5 :
-        body.planName === 'PRO' ? 20 :
-        body.planName === 'ULTIMATE' ? 100 : 1,
-        body.planName as any,
-        body.period as 'MONTHLY' | 'YEARLY',
-        null, // cancelAt
-        undefined, // code
-        { id: body.organizationId }
-      );
-
-      // Create payment transaction record
-      await this._subscriptionService.createPaymentTransaction(
-        body.organizationId,
-        null, // subscriptionId - we'll set this later if needed
-        'RAZORPAY',
-        body.razorpay_payment_id,
-        body.amount * 100, // Convert to cents for consistency
-        'USD',
-        'SUCCEEDED',
-        'SUBSCRIPTION_PAYMENT',
-        undefined, // paymentMethod
-        `Razorpay subscription payment - ${body.planName}`,
-        undefined, // failureReason
-        {
-          razorpay_order_id: body.razorpay_order_id,
-          razorpay_signature: body.razorpay_signature
-        }
-      );
-
-      console.log(`✅ Successfully activated subscription for org ${body.organizationId}`);
-
-      return {
-        success: true,
-        message: 'Payment verified and subscription activated',
-        subscription: subscriptionResult
-      };
-    } catch (error) {
-      console.error('❌ Payment verification failed:', error);
-      throw new Error('Payment verification failed');
+    if (body.razorpay_signature !== expectedSign) {
+      throw new HttpException('Payment signature verification failed', 400);
     }
+
+    const channelCount =
+      body.planName === 'STANDARD' ? 5 :
+      body.planName === 'PRO' ? 20 :
+      body.planName === 'ULTIMATE' ? 100 : 1;
+
+    const subscriptionResult = await this._subscriptionService.createOrUpdateSubscription(
+      false,
+      body.razorpay_payment_id,
+      body.razorpay_payment_id,
+      channelCount,
+      body.planName as any,
+      body.period as 'MONTHLY' | 'YEARLY',
+      null,
+      undefined,
+      { id: body.organizationId }
+    );
+
+    return {
+      success: true,
+      message: 'Payment verified and subscription activated',
+      subscription: subscriptionResult,
+    };
   }
 
   @Get('/razorpay-redirect')
   async handleRazorpayRedirect(
     @Query() query: {
       subscription_id?: string;
-      payment_id?: string;
       org_id?: string;
-      status?: string;
     }
   ) {
-    try {
-      console.log(`🔄 Handling Razorpay redirect for subscription ${query.subscription_id}`);
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
 
-      // If we have a subscription_id, check its status
-      if (query.subscription_id) {
-        const status = await this._razorpayService.checkSubscription(query.org_id || '', query.subscription_id);
-
-        if (status === 'ACTIVE') {
-          // Redirect to success page
-          const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-          const successUrl = `${frontendUrl}/billing/success?provider=razorpay&subscription_id=${query.subscription_id}&org_id=${query.org_id}`;
-          return { redirectUrl: successUrl };
-        } else {
-          // Redirect to cancel/failure page
-          const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-          const cancelUrl = `${frontendUrl}/billing/cancel?provider=razorpay&subscription_id=${query.subscription_id}&org_id=${query.org_id}`;
-          return { redirectUrl: cancelUrl };
-        }
-      }
-
-      // Default redirect to billing page
-      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-      return { redirectUrl: `${frontendUrl}/billing` };
-
-    } catch (error) {
-      console.error('❌ Error handling Razorpay redirect:', error);
-      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-      return { redirectUrl: `${frontendUrl}/billing` };
-    }
-  }
-
-  @Post('/test-transaction')
-  async createTestTransaction(@GetOrgFromRequest() org: Organization) {
-    try {
-      const testAmount = 49; // $49.00
-
-      await this._subscriptionService.createPaymentTransaction(
-        org.id,
-        null, // no specific subscription
-        'PAYPAL',
-        `test_${Date.now()}`,
-        testAmount * 100, // convert to cents
-        'USD',
-        'SUCCEEDED',
-        'SUBSCRIPTION_PAYMENT',
-        'Test Transaction',
-        'This is a test transaction for debugging purposes',
-        undefined, // no failure reason
-        { isTest: true }
+    if (query.subscription_id) {
+      const status = await this._razorpayService.checkSubscription(
+        query.org_id || '',
+        query.subscription_id
       );
 
-      console.log(`🧪 Created test transaction for organization ${org.id}, amount: ${testAmount}`);
+      if (status === 'ACTIVE') {
+        return {
+          redirectUrl: `${frontendUrl}/billing/success?provider=razorpay&subscription_id=${query.subscription_id}&org_id=${query.org_id}`,
+        };
+      }
 
-      return { success: true, message: 'Test transaction created successfully' };
-    } catch (error) {
-      console.error('❌ Error creating test transaction:', error);
-      throw error;
+      return {
+        redirectUrl: `${frontendUrl}/billing/cancel?provider=razorpay&subscription_id=${query.subscription_id}&org_id=${query.org_id}`,
+      };
     }
+
+    return { redirectUrl: `${frontendUrl}/billing` };
   }
 }

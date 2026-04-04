@@ -4,8 +4,6 @@ import { OrganizationRepository } from '@gitroom/nestjs-libraries/database/prism
 import { OrganizationService } from '@gitroom/nestjs-libraries/database/prisma/organizations/organization.service';
 import { UsersService } from '@gitroom/nestjs-libraries/database/prisma/users/users.service';
 import { UsersRepository } from '@gitroom/nestjs-libraries/database/prisma/users/users.repository';
-import { StarsService } from '@gitroom/nestjs-libraries/database/prisma/stars/stars.service';
-import { StarsRepository } from '@gitroom/nestjs-libraries/database/prisma/stars/stars.repository';
 import { SubscriptionService } from '@gitroom/nestjs-libraries/database/prisma/subscriptions/subscription.service';
 import { SubscriptionRepository } from '@gitroom/nestjs-libraries/database/prisma/subscriptions/subscription.repository';
 import { NotificationService } from '@gitroom/nestjs-libraries/database/prisma/notifications/notification.service';
@@ -18,10 +16,6 @@ import { MediaService } from '@gitroom/nestjs-libraries/database/prisma/media/me
 import { MediaRepository } from '@gitroom/nestjs-libraries/database/prisma/media/media.repository';
 import { NotificationsRepository } from '@gitroom/nestjs-libraries/database/prisma/notifications/notifications.repository';
 import { EmailService } from '@gitroom/nestjs-libraries/services/email.service';
-import { ItemUserRepository } from '@gitroom/nestjs-libraries/database/prisma/marketplace/item.user.repository';
-import { ItemUserService } from '@gitroom/nestjs-libraries/database/prisma/marketplace/item.user.service';
-import { MessagesService } from '@gitroom/nestjs-libraries/database/prisma/marketplace/messages.service';
-import { MessagesRepository } from '@gitroom/nestjs-libraries/database/prisma/marketplace/messages.repository';
 import { StripeService } from '@gitroom/nestjs-libraries/services/stripe.service';
 import { ExtractContentService } from '@gitroom/nestjs-libraries/openai/extract.content.service';
 import { OpenaiService } from '@gitroom/nestjs-libraries/openai/openai.service';
@@ -42,6 +36,10 @@ import { ThirdPartyService } from '@gitroom/nestjs-libraries/database/prisma/thi
 import { VideoManager } from '@gitroom/nestjs-libraries/videos/video.manager';
 import { FalService } from '@gitroom/nestjs-libraries/openai/fal.service';
 import { RefreshIntegrationService } from '@gitroom/nestjs-libraries/integrations/refresh.integration.service';
+import { OAuthRepository } from '@gitroom/nestjs-libraries/database/prisma/oauth/oauth.repository';
+import { OAuthService } from '@gitroom/nestjs-libraries/database/prisma/oauth/oauth.service';
+import { AnnouncementsRepository } from '@gitroom/nestjs-libraries/database/prisma/announcements/announcements.repository';
+import { AnnouncementsService } from '@gitroom/nestjs-libraries/database/prisma/announcements/announcements.service';
 
 @Global()
 @Module({
@@ -55,8 +53,6 @@ import { RefreshIntegrationService } from '@gitroom/nestjs-libraries/integration
     UsersRepository,
     OrganizationService,
     OrganizationRepository,
-    StarsService,
-    StarsRepository,
     SubscriptionService,
     SubscriptionRepository,
     NotificationService,
@@ -68,18 +64,14 @@ import { RefreshIntegrationService } from '@gitroom/nestjs-libraries/integration
     PostsService,
     PostsRepository,
     StripeService,
-    MessagesRepository,
     SignatureRepository,
     AutopostRepository,
     AutopostService,
     SignatureService,
     MediaService,
     MediaRepository,
-    ItemUserRepository,
     AgenciesService,
     AgenciesRepository,
-    ItemUserService,
-    MessagesService,
     IntegrationManager,
     RefreshIntegrationService,
     ExtractContentService,
@@ -92,7 +84,11 @@ import { RefreshIntegrationService } from '@gitroom/nestjs-libraries/integration
     SetsRepository,
     ThirdPartyRepository,
     ThirdPartyService,
+    OAuthRepository,
+    OAuthService,
     VideoManager,
+    AnnouncementsRepository,
+    AnnouncementsService,
   ],
   get exports() {
     return this.providers;

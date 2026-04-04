@@ -14,36 +14,36 @@ const useFaqList = () => {
       ? [
           {
             title: t(
-              'faq_am_i_going_to_be_charged_by_postnify',
-              'Am I going to be charged by Postnify?'
+              'faq_am_i_going_to_be_charged_by_postiz',
+              'Am I going to be charged by Postiz?'
             ),
             description: t(
-              'faq_to_confirm_credit_card_information_postnify_will_hold',
-              'To confirm credit card information Postnify will hold $2 and release it immediately'
+              'faq_to_confirm_credit_card_information_postiz_will_hold',
+              'To confirm credit card information Postiz will hold $2 and release it immediately, you can cancel your subscription anytime from settings without talking to a person'
             ),
           },
         ]
       : []),
     {
       title: t(
-        'faq_can_i_trust_postnify_gitroom',
-        `Can I trust ${isGeneral ? 'Postnify' : 'Gitroom'}?`
+        'faq_can_i_trust_postiz_gitroom',
+        `Can I trust ${isGeneral ? 'Postiz' : 'Gitroom'}?`
       ),
       description: t(
-        'faq_postnify_gitroom_is_proudly_open_source',
+        'faq_postiz_gitroom_is_proudly_open_source',
         `${
-          isGeneral ? 'Postnify' : 'Gitroom'
+          isGeneral ? 'Postiz' : 'Gitroom'
         } is proudly open-source! We believe in an ethical and transparent culture, meaning that ${
-          isGeneral ? 'Postnify' : 'Gitroom'
-        } will live forever. You can check out the entire code or use it for personal projects. To view the open-source repository, <a href="https://github.com/gitroomhq/postnify-app" target="_blank" style="text-decoration: underline;">click here</a>.`
+          isGeneral ? 'Postiz' : 'Gitroom'
+        } will live forever. You can check out the entire code or use it for personal projects. To view the open-source repository, <a href="https://github.com/gitroomhq/postiz-app" target="_blank" style="text-decoration: underline;">click here</a>.`
       ),
     },
     {
       title: t('faq_what_are_channels', 'What are channels?'),
       description: t(
-        'faq_postnify_gitroom_allows_you_to_schedule_posts',
+        'faq_postiz_gitroom_allows_you_to_schedule_posts',
         `${
-          isGeneral ? 'Postnify' : 'Gitroom'
+          isGeneral ? 'Postiz' : 'Gitroom'
         } allows you to schedule your posts between different channels.
 A channel is a publishing platform where you can schedule your posts.
 For example, you can schedule your posts on X, Facebook, Instagram, TikTok, YouTube, Reddit, Linkedin, Dribbble, Threads and Pinterest.`
@@ -72,9 +72,7 @@ export const FAQSection: FC<{
       className="bg-sixth p-[24px] border border-tableBorder rounded-[8px] flex flex-col"
       onClick={changeShow}
     >
-      <div
-        className={`text-[20px] cursor-pointer flex justify-center`}
-      >
+      <div className={`text-[20px] cursor-pointer flex justify-center`}>
         <div className="flex-1">{title}</div>
         <div className="flex items-center justify-center w-[32px]">
           {!show ? (
@@ -120,7 +118,7 @@ export const FAQSection: FC<{
           onClick={(e) => {
             e.stopPropagation();
           }}
-          className={`mt-[16px] w-full text-wrap font-[400] text-[16px] text-customColor17 select-text`}
+          className={`mt-[16px] w-full text-wrap font-[400] text-[16px] text-customColor17 select-text max-w-[450px]`}
           dangerouslySetInnerHTML={{
             __html: description,
           }}
@@ -134,10 +132,10 @@ export const FAQComponent: FC = () => {
   const list = useFaqList();
   return (
     <div>
-      <h3 className="text-[24px] mt-[81px] mb-[40px]">
-        {t('frequently_asked_questions', 'Frequently Asked Questions')}
-      </h3>
-      <div className="gap-[24px] flex-col flex select-none">
+      {/*<h3 className="text-[24px] mt-[48px] mb-[40px] tablet:mt-[80px]">*/}
+      {/*  {t('frequently_asked_questions', 'Frequently Asked Questions')}*/}
+      {/*</h3>*/}
+      <div className="gap-[24px] flex-col flex select-none  mt-[48px] mb-[40px] tablet:mt-[80px]">
         {list.map((item, index) => (
           <FAQSection key={index} {...item} />
         ))}

@@ -2,12 +2,11 @@
 
 import { AddProviderButton } from '@gitroom/frontend/components/launches/add.provider.component';
 import { FC, useCallback, useEffect, useMemo, useState } from 'react';
-import Image from 'next/image';
-import { groupBy, orderBy } from 'lodash';
+import SafeImage from '@gitroom/react/helpers/safe.image';
+import { capitalize, groupBy, orderBy } from 'lodash';
 import { CalendarWeekProvider } from '@gitroom/frontend/components/launches/calendar.context';
 import { Filters } from '@gitroom/frontend/components/launches/filters';
 import { useFetch } from '@gitroom/helpers/utils/custom.fetch';
-import useSWR from 'swr';
 import { LoadingComponent } from '@gitroom/frontend/components/layout/loading';
 import clsx from 'clsx';
 import { useUser } from '../layout/user.context';
@@ -26,6 +25,7 @@ import { NewPost } from '@gitroom/frontend/components/launches/new.post';
 import { useT } from '@gitroom/react/translation/get.transation.service.client';
 import { useIntegrationList } from '@gitroom/frontend/components/launches/helpers/use.integration.list';
 import useCookie from 'react-use-cookie';
+import { Onboarding } from '@gitroom/frontend/components/onboarding/onboarding';
 
 export const SVGLine = () => {
   return (
@@ -54,8 +54,8 @@ export const SVGLine = () => {
           y2="-28.6843"
           gradientUnits="userSpaceOnUse"
         >
-          <stop stopColor="#26B9C0" />
-          <stop offset="1" stopColor="#13979D" />
+          <stop stopColor="#662FDA" />
+          <stop offset="1" stopColor="#5720CB" />
         </linearGradient>
         <radialGradient
           id="paint1_radial_1930_1119"
@@ -65,8 +65,8 @@ export const SVGLine = () => {
           gradientUnits="userSpaceOnUse"
           gradientTransform="translate(1.19333 7.45342) rotate(21.2064) scale(16.1503 188.627)"
         >
-          <stop stopColor="#7AE7ED" />
-          <stop offset="1" stopColor="#7AE7ED" stopOpacity="0" />
+          <stop stopColor="#8C66FF" />
+          <stop offset="1" stopColor="#8C66FF" stopOpacity="0" />
         </radialGradient>
       </defs>
     </svg>
@@ -234,6 +234,7 @@ export const MenuComponent: FC<
     collapsed,
   } = props;
   const user = useUser();
+  const t = useT();
   const [collected, drag, dragPreview] = useDrag(() => ({
     type: 'menu',
     item: {
@@ -247,7 +248,10 @@ export const MenuComponent: FC<
       {...(integration.refreshNeeded && {
         onClick: refreshChannel(integration),
         'data-tooltip-id': 'tooltip',
-        'data-tooltip-content': 'Channel disconnected, click to reconnect.',
+        'data-tooltip-content': t(
+          'channel_disconnected_click_to_reconnect',
+          'Channel disconnected, click to reconnect.'
+        ),
       })}
       {...(collapsed
         ? {
@@ -285,9 +289,9 @@ export const MenuComponent: FC<
           </div>
         )}
         <ImageWithFallback
-          fallbackSrc={`/icons/platforms/${integration.identifier}.png`}
+          fallbackSrc={'/no-picture.jpg'}
           src={integration.picture || '/no-picture.jpg'}
-          className="rounded-[8px]"
+          className="rounded-[8px] min-w-[36px] min-h-[36px]"
           alt={integration.identifier}
           width={36}
           height={36}
@@ -299,7 +303,7 @@ export const MenuComponent: FC<
             width={20}
           />
         ) : (
-          <Image
+          <SafeImage
             src={`/icons/platforms/${integration.identifier}.png`}
             className="rounded-[8px] absolute z-10 bottom-[5px] -end-[5px] border border-fifth"
             alt={integration.identifier}
@@ -315,8 +319,10 @@ export const MenuComponent: FC<
         totalNonDisabledChannels === user?.totalChannels
           ? {
               'data-tooltip-id': 'tooltip',
-              'data-tooltip-content':
-                'This channel is disabled, please upgrade your plan to enable it.',
+              'data-tooltip-content': t(
+                'channel_disabled_upgrade_plan',
+                'This channel is disabled, please upgrade your plan to enable it.'
+              ),
             }
           : {})}
         role="Handle"
@@ -455,7 +461,7 @@ export const LaunchesComponent = () => {
       return;
     }
     if (search.get('msg')) {
-      toast.show(search.get('msg')!, 'warning');
+      toast.show(search.get('msg')!, 'success');
       window?.opener?.postMessage(
         {
           msg: search.get('msg')!,
@@ -468,14 +474,13 @@ export const LaunchesComponent = () => {
       fireEvents('channel_added');
       window?.opener?.postMessage(
         {
-          msg: 'Channel added',
+          msg: t('channel_added', 'Channel added'),
           success: true,
         },
         '*'
       );
     }
-    // Only close window if it's a popup AND not an onboarding redirect
-    if (window.opener && !search.get('onboarding')) {
+    if (window.opener) {
       window.close();
     }
   }, []);
@@ -490,16 +495,17 @@ export const LaunchesComponent = () => {
   // @ts-ignore
   return (
     <DNDProvider>
+      <Onboarding />
       <CalendarWeekProvider integrations={sortedIntegrations}>
         <div
           className={clsx(
             'flex relative flex-col',
-            collapseMenu === '1' ? 'group sidebar w-[100px]' : 'w-[280px]'
+            collapseMenu === '1' ? 'group sidebar w-[100px]' : 'w-[260px]'
           )}
         >
           <div
             className={clsx(
-              'bg-newBgColorInner p-[20px] flex flex-col gap-[15px] transition-all absolute start-0 top-0 w-full h-full overflow-auto scrollbar scrollbar-thumb-fifth scrollbar-track-newBgColor'
+              'bg-newBgColorInner p-[20px] flex flex-col gap-[15px] transition-all absolute start-0 top-0 w-full h-full overflow-x-hidden overflow-y-auto scrollbar scrollbar-thumb-fifth scrollbar-track-newBgColor'
             )}
           >
             <div className="flex items-center">
@@ -574,19 +580,22 @@ export const LaunchesComponent = () => {
                 />
               ))}
             </div>
-            <div className="mt-[5px] text-center">
-              {process.env.NEXT_PUBLIC_VERSION
-                ? process.env.NEXT_PUBLIC_VERSION
-                : ''}
+            <div className="mt-[5px] text-center flex flex-col">
+              {billingEnabled && user?.isLifetime && (
+                <div>{capitalize(user?.tier?.current || '')} tier</div>
+              )}
+              <div>
+                {process.env.NEXT_PUBLIC_VERSION
+                  ? process.env.NEXT_PUBLIC_VERSION
+                  : ''}
+              </div>
             </div>
           </div>
         </div>
-        <div className="bg-newBgColorInner overflow-x-auto max-w-[100%] w-[100%] min-h-screen">
-          <div className="flex-1 flex-col flex p-[20px] gap-[12px]">
-            <Filters />
-            <div className="flex-1 flex">
-              <Calendar />
-            </div>
+        <div className="bg-newBgColorInner flex-1 flex-col flex p-[20px] gap-[12px]">
+          <Filters />
+          <div className="flex-1 flex">
+            <Calendar />
           </div>
         </div>
       </CalendarWeekProvider>

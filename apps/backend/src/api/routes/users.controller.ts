@@ -9,6 +9,7 @@ import {
   Res,
 } from '@nestjs/common';
 import { GetUserFromRequest } from '@gitroom/nestjs-libraries/user/user.from.request';
+import { sign } from 'jsonwebtoken';
 import { Organization, User } from '@prisma/client';
 import { SubscriptionService } from '@gitroom/nestjs-libraries/database/prisma/subscriptions/subscription.service';
 import { GetOrgFromRequest } from '@gitroom/nestjs-libraries/user/org.from.request';
@@ -29,7 +30,6 @@ import { UserAgent } from '@gitroom/nestjs-libraries/user/user.agent';
 import { TrackEnum } from '@gitroom/nestjs-libraries/user/track.enum';
 import { TrackService } from '@gitroom/nestjs-libraries/track/track.service';
 import { makeId } from '@gitroom/nestjs-libraries/services/make.is';
-import { removeAuth } from '@gitroom/backend/services/auth/auth.middleware';
 import { AuthorizationActions, Sections } from '@gitroom/backend/services/auth/permissions/permission.exception.class';
 
 @ApiTags('User')
@@ -43,6 +43,23 @@ export class UsersController {
     private _userService: UsersService,
     private _trackService: TrackService
   ) {}
+  @Get('/agent-media-sso')
+  async getAgentMediaSsoUrl(
+    @GetUserFromRequest() user: User,
+    @GetOrgFromRequest() organization: Organization
+  ) {
+    if (!process.env.AGENT_MEDIA_SSO_KEY) {
+      throw new HttpException('Agent Media SSO is not configured', 400);
+    }
+
+    const token = sign(
+      { id: organization.id, displayName: organization.name },
+      process.env.AGENT_MEDIA_SSO_KEY
+    );
+
+    return { url: `https://agent-media.ai/sso/${token}` };
+  }
+
   @Get('/self')
   async getSelf(
     @GetUserFromRequest() user: User,
@@ -70,13 +87,14 @@ export class UsersController {
       impersonate: !!impersonate,
       isTrailing: !process.env.STRIPE_PUBLISHABLE_KEY ? false : organization?.isTrailing,
       allowTrial: organization?.allowTrial,
+      streakSince: organization?.streakSince || null,
       // @ts-ignore
       publicApi: organization?.users[0]?.role === 'SUPERADMIN' || organization?.users[0]?.role === 'ADMIN' ? organization?.apiKey : '',
     };
   }
 
   @Get('/personal')
-  async getPersonal(@GetUserFromRequest() user: User) {
+  async getPersonalInformation(@GetUserFromRequest() user: User) {
     return this._userService.getPersonal(user.id);
   }
 
@@ -140,6 +158,12 @@ export class UsersController {
     return this._userService.updateEmailNotifications(user.id, body);
   }
 
+  @Post('/api-key/rotate')
+  @CheckPolicies([AuthorizationActions.Create, Sections.ADMIN])
+  async rotateApiKey(@GetOrgFromRequest() organization: Organization) {
+    return this._orgService.updateApiKey(organization.id);
+  }
+
   @Get('/subscription')
   @CheckPolicies([AuthorizationActions.Create, Sections.ADMIN])
   async getSubscription(@GetOrgFromRequest() organization: Organization) {
@@ -193,107 +217,68 @@ export class UsersController {
     @Body('id') id: string,
     @Res({ passthrough: true }) response: Response
   ) {
-    // response.cookie('showorg', id, {
-    //   domain: getCookieUrlFromDomain(process.env.FRONTEND_URL!),
-    //   ...(!process.env.NOT_SECURED
-    //     ? {
-    //         secure: true,
-    //         httpOnly: true,
-    //         sameSite: 'none',
-    //       }
-    //     : {}),
-    //   expires: new Date(Date.now() + 1000 * 60 * 60 * 24 * 365),
-    // });
+    response.cookie('showorg', id, {
+      domain: getCookieUrlFromDomain(process.env.FRONTEND_URL!),
+      ...(!process.env.NOT_SECURED
+        ? {
+            secure: true,
+            httpOnly: true,
+            sameSite: 'none',
+          }
+        : {}),
+      expires: new Date(Date.now() + 1000 * 60 * 60 * 24 * 365),
+    });
 
-    // if (process.env.NOT_SECURED) {
-    //   response.header('showorg', id);
-    // }
+    if (process.env.NOT_SECURED) {
+      response.header('showorg', id);
+    }
 
     response.status(200).send();
   }
 
   @Post('/logout')
   logout(@Res({ passthrough: true }) response: Response) {
-    // Use the same domain as when cookies were originally set
-    const frontendUrl = new URL(process.env.FRONTEND_URL!);
-    const cookieDomain = frontendUrl.hostname;
-    const protocol = frontendUrl.protocol;
+    response.header('logout', 'true');
+    response.cookie('auth', '', {
+      domain: getCookieUrlFromDomain(process.env.FRONTEND_URL!),
+      ...(!process.env.NOT_SECURED
+        ? {
+            secure: true,
+            httpOnly: true,
+            sameSite: 'none',
+          }
+        : {}),
+      maxAge: -1,
+      expires: new Date(0),
+    });
 
-    // For HTTPS sites, even if NOT_SECURED is true, we need secure flags
-    const shouldUseSecure = !process.env.NOT_SECURED || protocol === 'https:';
+    response.cookie('showorg', '', {
+      domain: getCookieUrlFromDomain(process.env.FRONTEND_URL!),
+      ...(!process.env.NOT_SECURED
+        ? {
+            secure: true,
+            httpOnly: true,
+            sameSite: 'none',
+          }
+        : {}),
+      maxAge: -1,
+      expires: new Date(0),
+    });
 
-    // Clear cookies on the subdomain (primary domain)
-    const secureFlags = shouldUseSecure ? {
-      secure: true,
-      httpOnly: true,
-      sameSite: 'none' as const,
-    } : {};
+    response.cookie('impersonate', '', {
+      domain: getCookieUrlFromDomain(process.env.FRONTEND_URL!),
+      ...(!process.env.NOT_SECURED
+        ? {
+            secure: true,
+            httpOnly: true,
+            sameSite: 'none',
+          }
+        : {}),
+      maxAge: -1,
+      expires: new Date(0),
+    });
 
-    [
-      { name: 'auth', domain: cookieDomain },
-      { name: 'showorg', domain: cookieDomain },
-      { name: 'impersonate', domain: cookieDomain }
-    ].forEach(cookie => {
-        response.cookie(cookie.name, '', {
-          domain: cookie.domain,
-          ...secureFlags,
-          maxAge: -1,
-          expires: new Date(0),
-        });
-      });
-      response.header('logout', 'true');
-      response.cookie('auth', '', {
-        domain: getCookieUrlFromDomain(process.env.FRONTEND_URL!),
-        ...(!process.env.NOT_SECURED
-          ? {
-              secure: true,
-              httpOnly: true,
-              sameSite: 'none',
-            }
-          : {}),
-        maxAge: -1,
-        expires: new Date(0),
-      });
-
-      // Also clear cookies on the root domain to handle historical inconsistencies
-      // Extract root domain from hostname (e.g., stageapp.postnify.com -> .postnify.com)
-      if (cookieDomain.includes('.')) {
-        const domainParts = cookieDomain.split('.');
-        if (domainParts.length > 1) {
-          const rootDomain = '.' + domainParts.slice(-2).join('.');
-
-          [
-            { name: 'auth', domain: rootDomain },
-            { name: 'showorg', domain: rootDomain },
-            { name: 'impersonate', domain: rootDomain }
-          ].forEach(cookie => {
-            response.cookie(cookie.name, '', {
-              domain: cookie.domain,
-              ...secureFlags,
-              maxAge: -1,
-              expires: new Date(0),
-            });
-          });
-        }
-      }
-
-      [
-        { name: 'auth', domain: "stageapp.postnify.com" },
-        { name: 'showorg', domain: "stageapp.postnify.com" },
-        { name: 'impersonate', domain: "stageapp.postnify.com" }
-      ].forEach(cookie => {
-        response.cookie(cookie.name, '', {
-          domain: cookie.domain,
-          ...secureFlags,
-          maxAge: -1,
-          expires: new Date(0),
-        });
-      });
-      removeAuth(response);
-      // Cookies cleared successfully
-      response.header('logout', 'true');
-      response.status(200).send();
-    
+    response.status(200).send();
   }
 
   @Post('/t')
@@ -303,7 +288,8 @@ export class UsersController {
     @GetUserFromRequest() user: User,
     @RealIP() ip: string,
     @UserAgent() userAgent: string,
-    @Body() body: any
+    @Body()
+    body: { tt: TrackEnum; fbclid: string; additional: Record<string, any> }
   ) {
     const uniqueId = req?.cookies?.track || makeId(10);
     const fbclid = req?.cookies?.fbclid || body.fbclid;
@@ -316,8 +302,7 @@ export class UsersController {
       fbclid,
       user
     );
-
-    if (!req.cookies.track){
+    if (!req.cookies.track) {
       res.cookie('track', uniqueId, {
         domain: getCookieUrlFromDomain(process.env.FRONTEND_URL!),
         ...(!process.env.NOT_SECURED
@@ -336,4 +321,3 @@ export class UsersController {
     });
   }
 }
-

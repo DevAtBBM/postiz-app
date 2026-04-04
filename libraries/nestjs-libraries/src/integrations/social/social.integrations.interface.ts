@@ -28,6 +28,12 @@ export interface IAuthenticator {
     accessToken: string,
     date: number
   ): Promise<AnalyticsData[]>;
+  postAnalytics?(
+    integrationId: string,
+    accessToken: string,
+    postId: string,
+    fromDate: number,
+  ): Promise<AnalyticsData[]>;
   changeNickname?(
     id: string,
     accessToken: string,
@@ -38,6 +44,10 @@ export interface IAuthenticator {
     accessToken: string,
     url: string
   ): Promise<{ url: string }>;
+  missing?(
+    id: string,
+    accessToken: string
+  ): Promise<{ id: string; url: string }[]>;
 }
 
 export interface AnalyticsData {
@@ -45,6 +55,7 @@ export interface AnalyticsData {
   data: Array<{ total: string; date: string }>;
   percentageChange: number;
 }
+
 
 export type GenerateAuthUrlResponse = {
   url: string;
@@ -73,6 +84,15 @@ export type AuthTokenDetails = {
 export interface ISocialMediaIntegration {
   post(
     id: string,
+    accessToken: string,
+    postDetails: PostDetails[],
+    integration: Integration
+  ): Promise<PostResponse[]>; // Schedules a new post
+
+  comment?(
+    id: string,
+    postId: string,
+    lastCommentId: string | undefined,
     accessToken: string,
     postDetails: PostDetails[],
     integration: Integration
@@ -119,14 +139,15 @@ export interface SocialProvider
   extends IAuthenticator,
     ISocialMediaIntegration {
   identifier: string;
-  disabled?: boolean;
-  disabledMessage?: string;
   refreshWait?: boolean;
   convertToJPEG?: boolean;
+  refreshCron?: boolean;
   dto?: any;
   maxLength: (additionalSettings?: any) => number;
   isWeb3?: boolean;
-  editor: 'normal' | 'markdown' | 'html';
+  isChromeExtension?: boolean;
+  extensionCookies?: { name: string; domain: string }[];
+  editor: 'none' | 'normal' | 'markdown' | 'html';
   customFields?: () => Promise<
     {
       key: string;
@@ -139,14 +160,22 @@ export interface SocialProvider
   name: string;
   toolTip?: string;
   oneTimeToken?: boolean;
+  disabled?: boolean;
+  disabledMessage?: string;
   isBetweenSteps: boolean;
   scopes: string[];
   externalUrl?: (
     url: string
   ) => Promise<{ client_id: string; client_secret: string }>;
   mention?: (
-    token: string, data: { query: string }, id: string, integration: Integration
-  ) => Promise<{ id: string; label: string; image: string, doNotCache?: boolean }[] | {none: true}>;
+    token: string,
+    data: { query: string },
+    id: string,
+    integration: Integration
+  ) => Promise<
+    | { id: string; label: string; image: string; doNotCache?: boolean }[]
+    | { none: true }
+  >;
   mentionFormat?(idOrHandle: string, name: string): string;
   fetchPageInformation?(
     accessToken: string,

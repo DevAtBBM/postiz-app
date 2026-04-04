@@ -24,13 +24,14 @@ export class InstagramStandaloneProvider
   identifier = 'instagram-standalone';
   name = 'Instagram\n(Standalone)';
   isBetweenSteps = false;
+  refreshCron = true;
   scopes = [
     'instagram_business_basic',
     'instagram_business_content_publish',
     'instagram_business_manage_comments',
     'instagram_business_manage_insights',
   ];
-  override maxConcurrentJob = 10; // Instagram standalone has stricter limits
+    override maxConcurrentJob = 200; // Instagram standalone has stricter limits
   dto = InstagramDto;
 
   editor = 'normal' as const;
@@ -47,37 +48,29 @@ export class InstagramStandaloneProvider
   }
 
   async refreshToken(refresh_token: string): Promise<AuthTokenDetails> {
-    const refreshResponse = await fetch(
-      `https://graph.instagram.com/refresh_access_token?grant_type=ig_refresh_token&access_token=${refresh_token}`
-    );
-
-    const refreshData = await refreshResponse.json();
-
-    if (!refreshData.access_token) {
-      throw new Error(`Instagram refresh token failed: ${JSON.stringify(refreshData)}`);
-    }
-
-    const { access_token } = refreshData;
-
-    const userResponse = await fetch(
-      `https://graph.instagram.com/v21.0/me?fields=user_id,username,name,profile_picture_url&access_token=${access_token}`
-    );
-
-    const userData = await userResponse.json();
+    const { access_token } = await (
+      await fetch(
+        `https://graph.instagram.com/refresh_access_token?grant_type=ig_refresh_token&access_token=${refresh_token}`
+      )
+    ).json();
 
     const {
       user_id,
       name,
       username,
       profile_picture_url = '',
-    } = userData;
+    } = await (
+      await fetch(
+        `https://graph.instagram.com/v21.0/me?fields=user_id,username,name,profile_picture_url&access_token=${access_token}`
+      )
+    ).json();
 
     return {
       id: user_id,
       name,
       accessToken: access_token,
       refreshToken: access_token,
-      expiresIn: dayjs().add(59, 'days').unix() - dayjs().unix(),
+      expiresIn: dayjs().add(58, 'days').unix() - dayjs().unix(),
       picture: profile_picture_url || '',
       username,
     };
@@ -152,7 +145,7 @@ export class InstagramStandaloneProvider
       name,
       accessToken: access_token,
       refreshToken: access_token,
-      expiresIn: dayjs().add(59, 'days').unix() - dayjs().unix(),
+      expiresIn: dayjs().add(58, 'days').unix() - dayjs().unix(),
       picture: profile_picture_url,
       username,
     };
@@ -173,10 +166,44 @@ export class InstagramStandaloneProvider
     );
   }
 
+  async comment(
+    id: string,
+    postId: string,
+    lastCommentId: string | undefined,
+    accessToken: string,
+    postDetails: PostDetails<InstagramDto>[],
+    integration: Integration
+  ): Promise<PostResponse[]> {
+    return instagramProvider.comment(
+      id,
+      postId,
+      lastCommentId,
+      accessToken,
+      postDetails,
+      integration,
+      'graph.instagram.com'
+    );
+  }
+
   async analytics(id: string, accessToken: string, date: number) {
     return instagramProvider.analytics(
       id,
       accessToken,
+      date,
+      'graph.instagram.com'
+    );
+  }
+
+  async postAnalytics(
+    integrationId: string,
+    accessToken: string,
+    postId: string,
+    date: number
+  ) {
+    return instagramProvider.postAnalytics(
+      integrationId,
+      accessToken,
+      postId,
       date,
       'graph.instagram.com'
     );

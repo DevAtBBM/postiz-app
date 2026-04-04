@@ -9,7 +9,22 @@ import {
   useState,
 } from 'react';
 import { clsx } from 'clsx';
-import ReactLoading from 'react-loading';
+const ReactLoading = ({ color = '#fff', width = 20, height = 20 }: { type?: string; color?: string; width?: number; height?: number }) => {
+  const size = Math.min(width, height);
+  const borderWidth = Math.max(2, Math.round(size / 8));
+  return (
+    <div
+      style={{
+        width: size,
+        height: size,
+        border: `${borderWidth}px solid transparent`,
+        borderTopColor: color,
+        borderRadius: '50%',
+        animation: 'spin 0.8s linear infinite',
+      }}
+    />
+  );
+};
 export const Button: FC<
   DetailedHTMLProps<
     ButtonHTMLAttributes<HTMLButtonElement>,
@@ -33,7 +48,7 @@ export const Button: FC<
       className={clsx(
         (props.disabled || loading) && 'opacity-50 pointer-events-none',
         `${
-          props.secondary ? 'bg-third' : 'bg-forth text-white'
+          secondary ? 'bg-third' : 'bg-forth text-white'
         } px-[24px] h-[40px] cursor-pointer items-center justify-center flex relative`,
         props?.className
       )}

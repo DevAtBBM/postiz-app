@@ -15,13 +15,13 @@ import { LoginUserDto } from '@gitroom/nestjs-libraries/dtos/auth/login.user.dto
 import { AuthService } from '@gitroom/backend/services/auth/auth.service';
 import { ForgotReturnPasswordDto } from '@gitroom/nestjs-libraries/dtos/auth/forgot-return.password.dto';
 import { ForgotPasswordDto } from '@gitroom/nestjs-libraries/dtos/auth/forgot.password.dto';
+import { ResendActivationDto } from '@gitroom/nestjs-libraries/dtos/auth/resend-activation.dto';
 import { ApiTags } from '@nestjs/swagger';
 import { getCookieUrlFromDomain } from '@gitroom/helpers/subdomain/subdomain.management';
 import { EmailService } from '@gitroom/nestjs-libraries/services/email.service';
 import { RealIP } from 'nestjs-real-ip';
 import { UserAgent } from '@gitroom/nestjs-libraries/user/user.agent';
 import { Provider } from '@prisma/client';
-import { ProvidersFactory } from '@gitroom/backend/services/auth/providers/providers.factory';
 import * as Sentry from '@sentry/nestjs';
 
 @ApiTags('Auth')
@@ -60,59 +60,26 @@ export class AuthController {
         getOrgFromCookie
       );
 
-      // Check for referral header to determine redirect
-      const isFromReferral = req.headers['x-referral'] === 'paid';
-      const plan = req.headers['x-plan'] as string;
-
       const activationRequired =
         body.provider === 'LOCAL' && this._emailService.hasProvider();
 
       if (activationRequired) {
-        // For referral users, store referral info in cookie for activation
-        if (isFromReferral && plan) {
-          response.cookie('referral_plan', plan, {
-            domain: getCookieUrlFromDomain(process.env.FRONTEND_URL!),
-            ...(!process.env.NOT_SECURED
-              ? {
-                  secure: true,
-                  httpOnly: true,
-                  sameSite: 'none',
-                }
-              : {}),
-            expires: new Date(Date.now() + 1000 * 60 * 60 * 24), // 24 hours
-          });
-        }
         response.header('activate', 'true');
         response.status(200).json({ activate: true });
-          return;
-        }
-
-        // Handle activation required (email sent)
-        if (activationRequired) {
-          response.status(200).json({
-            activate: true,
-            message: 'Verification email sent successfully. Please check your email and click the activation link.'
-          });
-          return;
-        }
-
-      if (isFromReferral && plan) {
-        response.header('billing', plan);
-      } else {
-        response.header('onboarding', 'true');
+        return;
       }
 
-        response.cookie('auth', jwt, {
-          domain: getCookieUrlFromDomain(process.env.FRONTEND_URL!),
-          ...(!process.env.NOT_SECURED
-            ? {
-                secure: true,
-                httpOnly: true,
-                sameSite: 'none',
-              }
-            : {}),
-          expires: new Date(Date.now() + 1000 * 60 * 60 * 24 * 365),
-        });
+      response.cookie('auth', jwt, {
+        domain: getCookieUrlFromDomain(process.env.FRONTEND_URL!),
+        ...(!process.env.NOT_SECURED
+          ? {
+              secure: true,
+              httpOnly: true,
+              sameSite: 'none',
+            }
+          : {}),
+        expires: new Date(Date.now() + 1000 * 60 * 60 * 24 * 365),
+      });
 
       if (process.env.NOT_SECURED) {
         response.header('auth', jwt);
@@ -136,12 +103,8 @@ export class AuthController {
         }
       }
 
-      Sentry.metrics.count("new_user", 1);
-      if (isFromReferral && plan) {
-        response.header('billing', plan);
-      } else {
-        response.header('onboarding', 'true');
-      }
+      Sentry.metrics.count('new_user', 1);
+      response.header('onboarding', 'true');
       response.status(200).json({
         register: true,
       });
@@ -205,16 +168,7 @@ export class AuthController {
         }
       }
 
-      // Check for referral header to determine redirect
-      const isFromReferral = req.headers['x-referral'] === 'paid';
-      const plan = req.headers['x-plan'] as string;
-
-      if (isFromReferral && plan) {
-        response.header('billing', plan);
-      } else {
-        response.header('reload', 'true');
-      }
-
+      response.header('reload', 'true');
       response.status(200).json({
         login: true,
       });
@@ -252,11 +206,11 @@ export class AuthController {
 
   @Post('/activate')
   async activate(
-    @Req() req: Request,
     @Body('code') code: string,
+    @Body('datafast_visitor_id') datafast_visitor_id: string,
     @Res({ passthrough: false }) response: Response
   ) {
-    const activate = await this._authService.activate(code);
+    const activate = await this._authService.activate(code, datafast_visitor_id);
     if (!activate) {
       return response.status(200).json({ can: false });
     }
@@ -277,199 +231,23 @@ export class AuthController {
       response.header('auth', activate);
     }
 
-    // Check for referral cookie set during registration
-    const referralPlan = req.cookies['referral_plan'];
-    if (referralPlan) {
-      response.header('billing', referralPlan);
-      // Clear the cookie after use
-      response.cookie('referral_plan', '', {
-        domain: getCookieUrlFromDomain(process.env.FRONTEND_URL!),
-        ...(!process.env.NOT_SECURED
-          ? {
-              secure: true,
-              httpOnly: true,
-              sameSite: 'none',
-            }
-          : {}),
-        expires: new Date(0),
-      });
-    } else {
-      response.header('onboarding', 'true');
-    }
+    response.header('onboarding', 'true');
 
     return response.status(200).json({ can: true });
   }
 
-  @Get('/oauth/callback/:provider')
-  async oauthCallback(
-    @Param('provider') provider: string,
-    @Query('code') code: string,
-    @Query('state') state: string,
-    @Res({ passthrough: false }) response: Response
-  ) {
+  @Post('/resend-activation')
+  async resendActivation(@Body() body: ResendActivationDto) {
     try {
-      console.log('OAuth callback received:', { provider, code: code.substring(0, 20) + '...', state });
-
-      // Use the existing oauthExists endpoint logic
-      const { jwt, token } = await this._authService.checkExists(provider, code);
-
-      if (token) {
-        // Check if token is actually an access token (ya29. prefix)
-        if (token.startsWith('ya29.')) {
-          // Direct access token - handle it directly
-          try {
-            // ProvidersFactory is now imported statically at the top
-            const providerInstance = ProvidersFactory.loadProvider(provider as any);
-            const userInfo = await providerInstance.getUser(token);
-
-            if (!userInfo || !userInfo.email) {
-              throw new Error('Failed to get user information from OAuth provider');
-            }
-
-            console.log('Direct token user - creating account for:', userInfo.email);
-
-            // Try to register user directly with backend
-            const createUserDto = {
-              email: userInfo.email,
-              password: '', // OAuth users don't need passwords
-              provider: provider as Provider,
-              providerToken: token,
-              company: 'Default Company'
-            };
-
-            try {
-              const registerResult = await this._authService.routeAuth(provider as any, createUserDto, '127.0.0.1', 'OAuth Flow');
-
-              // Set auth cookie directly
-              response.cookie('auth', registerResult.jwt, {
-                domain: getCookieUrlFromDomain(process.env.FRONTEND_URL!),
-                ...(!process.env.NOT_SECURED
-                  ? {
-                      secure: true,
-                      httpOnly: true,
-                      sameSite: 'none',
-                    }
-                  : {}),
-                expires: new Date(Date.now() + 1000 * 60 * 60 * 24 * 365),
-              });
-
-              if (process.env.NOT_SECURED) {
-                response.header('auth', registerResult.jwt);
-              }
-
-              // Check for referral in query params for OAuth
-              const isFromReferral = state && state.includes('referral=paid');
-              let plan = '';
-              if (isFromReferral) {
-                const urlParams = new URLSearchParams(state);
-                plan = urlParams.get('plan') || '';
-              }
-
-              if (isFromReferral && plan) {
-                response.header('billing', plan);
-              } else {
-                response.header('reload', 'true');
-              }
-              response.redirect(`${process.env.FRONTEND_URL}/`);
-              return;
-            } catch (registerError: any) {
-              console.log('User already exists, checking login...');
-
-              // If registration failed (likely user exists), try login flow
-              try {
-                const loginResult = await this._authService.routeAuth(provider as any, {
-                  email: '', // Not needed for OAuth login
-                  password: '',
-                  provider: provider as Provider,
-                  providerToken: token,
-                  company: '' // Not needed for login
-                }, '127.0.0.1', 'OAuth Flow');
-
-                // Set auth cookie for login
-                response.cookie('auth', loginResult.jwt, {
-                  domain: getCookieUrlFromDomain(process.env.FRONTEND_URL!),
-                  ...(!process.env.NOT_SECURED
-                    ? {
-                        secure: true,
-                        httpOnly: true,
-                        sameSite: 'none',
-                      }
-                    : {}),
-                  expires: new Date(Date.now() + 1000 * 60 * 60 * 24 * 365),
-                });
-
-                if (process.env.NOT_SECURED) {
-                  response.header('auth', loginResult.jwt);
-                }
-
-                // Check for referral in query params for OAuth
-                const isFromReferral = state && state.includes('referral=paid');
-                let plan = '';
-                if (isFromReferral) {
-                  const urlParams = new URLSearchParams(state);
-                  plan = urlParams.get('plan') || '';
-                }
- 
-                if (isFromReferral && plan) {
-                  response.header('billing', plan);
-                } else {
-                  response.header('reload', 'true');
-                }
-                response.redirect(`${process.env.FRONTEND_URL}/`);
-                return;
-              } catch (loginError) {
-                console.log('Login failed, redirecting to frontend:', loginError instanceof Error ? loginError.message : String(loginError));
-                // Both registration and login failed, send to frontend
-                response.redirect(`${process.env.FRONTEND_URL}/auth/login?authcode=${token}&provider=${provider}&error=${encodeURIComponent('Account setup failed')}`);
-                return;
-              }
-            }
-          } catch (userInfoError) {
-            console.error('Failed to get user info from token:', userInfoError);
-            response.redirect(`${process.env.FRONTEND_URL}/auth/login?error=${encodeURIComponent('Failed to authenticate with OAuth provider')}`);
-            return;
-          }
-        } else {
-          // This is a regular authorization code, redirect to frontend
-          response.redirect(`${process.env.FRONTEND_URL}/auth/login?authcode=${token}&provider=${provider}`);
-          return;
-        }
-      }
-
-      // Existing user - set auth cookie and redirect
-      response.cookie('auth', jwt, {
-        domain: getCookieUrlFromDomain(process.env.FRONTEND_URL!),
-        ...(!process.env.NOT_SECURED
-          ? {
-              secure: true,
-              httpOnly: true,
-              sameSite: 'none',
-            }
-          : {}),
-        expires: new Date(Date.now() + 1000 * 60 * 60 * 24 * 365),
-      });
-
-      if (process.env.NOT_SECURED) {
-        response.header('auth', jwt);
-      }
-
-      // Check for referral in state for OAuth (existing user)
-      const isFromReferral = state && state.includes('referral=paid');
-      let plan = '';
-      if (isFromReferral) {
-        const urlParams = new URLSearchParams(state);
-        plan = urlParams.get('plan') || '';
-      }
-
-      if (isFromReferral && plan) {
-        response.header('billing', plan);
-      } else {
-        response.header('reload', 'true');
-      }
-      response.redirect(`${process.env.FRONTEND_URL}/`);
+      await this._authService.resendActivationEmail(body.email);
+      return {
+        success: true,
+      };
     } catch (e: any) {
-      console.error('OAuth callback error:', e);
-      response.redirect(`${process.env.FRONTEND_URL}/auth/login?error=${encodeURIComponent(e.message)}`);
+      return {
+        success: false,
+        message: e.message,
+      };
     }
   }
 

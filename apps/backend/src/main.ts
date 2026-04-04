@@ -1,52 +1,51 @@
+import { initializeSentry } from '@gitroom/nestjs-libraries/sentry/initialize.sentry';
+initializeSentry('backend', true);
+import compression from 'compression';
+
 import { loadSwagger } from '@gitroom/helpers/swagger/load.swagger';
+import { json } from 'express';
+import { Runtime } from '@temporalio/worker';
+Runtime.install({ shutdownSignals: [] });
 
 process.env.TZ = 'UTC';
-
-// Increase EventTarget max listeners to prevent AbortSignal warnings from LangChain
-if (typeof EventTarget !== 'undefined') {
-  (EventTarget as any).defaultMaxListeners = 50;
-}
 
 import cookieParser from 'cookie-parser';
 import { Logger, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 
-import { initializeSentry } from '@gitroom/nestjs-libraries/sentry/initialize.sentry';
-initializeSentry('backend', true);
-
 import { SubscriptionExceptionFilter } from '@gitroom/backend/services/auth/permissions/subscription.exception';
 import { HttpExceptionFilter } from '@gitroom/nestjs-libraries/services/exception.filter';
 import { ConfigurationChecker } from '@gitroom/helpers/configuration/configuration.checker';
+import { startMcp } from '@gitroom/nestjs-libraries/chat/start.mcp';
 
-async function bootstrap() {
+async function start() {
   const app = await NestFactory.create(AppModule, {
     rawBody: true,
     cors: {
       ...(!process.env.NOT_SECURED ? { credentials: true } : {}),
+      allowedHeaders: [
+        'Content-Type',
+        'Authorization',
+        'x-copilotkit-runtime-client-gql-version',
+      ],
       exposedHeaders: [
         'reload',
         'onboarding',
         'activate',
+        'x-copilotkit-runtime-client-gql-version',
         ...(process.env.NOT_SECURED ? ['auth', 'showorg', 'impersonate'] : []),
       ],
       origin: [
         process.env.FRONTEND_URL,
-        'http://localhost:3000',
-        'http://localhost:3003',
-        'http://localhost:4200',
-       'http://127.0.0.1:3000',
-       'http://127.0.0.1:3003',
-       'http://127.0.0.1:4200',
-       'http://147.93.153.163:3000',
-       'http://147.93.153.163:3003',
-       'http://147.93.153.163:4200',
-       'http://147.93.153.163',
+        'http://localhost:6274',
         ...(process.env.MAIN_URL ? [process.env.MAIN_URL] : []),
         ...(process.env.EXTRA_CORS_ORIGINS ? process.env.EXTRA_CORS_ORIGINS.split(',') : []),
       ],
     },
   });
+
+  await startMcp(app);
 
   app.useGlobalPipes(
     new ValidationPipe({
@@ -54,7 +53,12 @@ async function bootstrap() {
     })
   );
 
+  app.use(['/copilot/*', '/posts'], (req: any, res: any, next: any) => {
+    json({ limit: '50mb' })(req, res, next);
+  });
+
   app.use(cookieParser());
+  app.use(compression());
   app.useGlobalFilters(new SubscriptionExceptionFilter());
   app.useGlobalFilters(new HttpExceptionFilter());
 
@@ -64,6 +68,7 @@ async function bootstrap() {
 
   try {
     await app.listen(port);
+    console.log('Backend started successfully on port ' + port);
 
     checkConfiguration(); // Do this last, so that users will see obvious issues at the end of the startup log without having to scroll up.
 
@@ -85,8 +90,8 @@ function checkConfiguration() {
 
     Logger.warn('Configuration issues found: ' + checker.getIssuesCount());
   } else {
-    Logger.log('Configuration check completed without any issues.');
+    Logger.log('Configuration check completed without any issues');
   }
 }
 
-bootstrap();
+start();

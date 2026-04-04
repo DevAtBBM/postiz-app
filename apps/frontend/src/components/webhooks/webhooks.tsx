@@ -1,10 +1,11 @@
-import React, { FC, Fragment, useCallback, useMemo, useState } from 'react';
+'use client';
+
+import React, { FC, Fragment, useCallback, useState } from 'react';
 import { useFetch } from '@gitroom/helpers/utils/custom.fetch';
 import useSWR from 'swr';
 import { useUser } from '@gitroom/frontend/components/layout/user.context';
 import { Button } from '@gitroom/react/form/button';
 import { useModals } from '@gitroom/frontend/components/layout/new-modal';
-import { TopTitle } from '@gitroom/frontend/components/launches/helpers/top.title.component';
 import { Input } from '@gitroom/react/form/input';
 import { FormProvider, useForm } from 'react-hook-form';
 import { array, object, string } from 'yup';
@@ -15,11 +16,13 @@ import { useToaster } from '@gitroom/react/toaster/toaster';
 import clsx from 'clsx';
 import { deleteDialog } from '@gitroom/react/helpers/delete.dialog';
 import { useT } from '@gitroom/react/translation/get.transation.service.client';
+
 export const Webhooks: FC = () => {
   const fetch = useFetch();
   const user = useUser();
   const modal = useModals();
   const toaster = useToaster();
+  const t = useT();
   const list = useCallback(async () => {
     return (await fetch('/webhooks')).json();
   }, []);
@@ -27,12 +30,12 @@ export const Webhooks: FC = () => {
   const addWebhook = useCallback(
     (data?: any) => () => {
       modal.openModal({
-        title: data ? 'Update webhook' : 'Add webhook',
+        title: data ? t('update_webhook', 'Update webhook') : t('add_webhook', 'Add webhook'),
         withCloseButton: true,
         children: <AddOrEditWebhook data={data} reload={mutate} />,
       });
     },
-    []
+    [t]
   );
   const deleteHook = useCallback(
     (data: any) => async () => {
@@ -49,13 +52,11 @@ export const Webhooks: FC = () => {
           method: 'DELETE',
         });
         mutate();
-        toaster.show('Webhook deleted successfully', 'success');
+        toaster.show(t('webhook_deleted_successfully', 'Webhook deleted successfully'), 'success');
       }
     },
     []
   );
-
-  const t = useT();
 
   return (
     <div className="flex flex-col">
@@ -64,14 +65,14 @@ export const Webhooks: FC = () => {
       </h3>
       <div className="text-customColor18 mt-[4px]">
         {t(
-          'webhooks_are_a_way_to_get_notified_when_something_happens_in_postnify_via_an_http_request',
-          'Webhooks are a way to get notified when something happens in Postnify via\n        an HTTP request.'
+          'webhooks_are_a_way_to_get_notified_when_something_happens_in_postiz_via_an_http_request',
+          'Webhooks are a way to get notified when something happens in Postiz via\n        an HTTP request.'
         )}
       </div>
       <div className="my-[16px] mt-[16px] bg-sixth border-fifth items-center border rounded-[4px] p-[24px] flex gap-[24px]">
         <div className="flex flex-col w-full">
           {!!data?.length && (
-            <div className="grid grid-cols-[1fr,1fr,1fr,1fr] w-full gap-[10px] text-sm sm:text-base">
+            <div className="grid grid-cols-[1fr,1fr,1fr,1fr] w-full gap-y-[10px]">
               <div>{t('name', 'Name')}</div>
               <div>{t('url', 'URL')}</div>
               <div>{t('edit', 'Edit')}</div>
@@ -89,7 +90,7 @@ export const Webhooks: FC = () => {
                   </div>
                   <div className="flex flex-col justify-center">
                     <div>
-                      <Button onClick={deleteHook(p)} className="bg-red-600 hover:bg-red-700 text-white">
+                      <Button onClick={deleteHook(p)}>
                         {t('delete', 'Delete')}
                       </Button>
                     </div>
@@ -116,13 +117,13 @@ const details = object().shape({
   url: string().url().required(),
   integrations: array(),
 });
-const options = [
+const getWebhookOptions = (t: (key: string, fallback: string) => string) => [
   {
-    label: 'All integrations',
+    label: t('all_integrations', 'All integrations'),
     value: 'all',
   },
   {
-    label: 'Specific integrations',
+    label: t('specific_integrations', 'Specific integrations'),
     value: 'specific',
   },
 ];
@@ -132,6 +133,8 @@ export const AddOrEditWebhook: FC<{
 }> = (props) => {
   const { data, reload } = props;
   const fetch = useFetch();
+  const t = useT();
+  const options = getWebhookOptions(t);
   const [allIntegrations, setAllIntegrations] = useState(
     (data?.integrations?.length || 0) > 0 ? options[1] : options[0]
   );
@@ -184,8 +187,8 @@ export const AddOrEditWebhook: FC<{
       });
       toast.show(
         data?.id
-          ? 'Webhook updated successfully'
-          : 'Webhook added successfully',
+          ? t('webhook_updated_successfully', 'Webhook updated successfully')
+          : t('webhook_added_successfully', 'Webhook added successfully'),
         'success'
       );
       modal.closeAll();
@@ -195,12 +198,12 @@ export const AddOrEditWebhook: FC<{
   );
   const sendTest = useCallback(async () => {
     const url = form.getValues('url');
-    toast.show('Webhook send', 'success');
+    toast.show(t('webhook_sent', 'Webhook send'), 'success');
     try {
       await fetch(`/webhooks/send?url=${encodeURIComponent(url)}`, {
         method: 'POST',
         headers: {
-          contentType: 'application/json',
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify([
           {
@@ -237,8 +240,6 @@ export const AddOrEditWebhook: FC<{
       /** empty **/
     }
   }, []);
-
-  const t = useT();
 
   return (
     <FormProvider {...form}>

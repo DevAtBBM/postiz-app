@@ -35,6 +35,8 @@ export class CreateOrgUserDto {
   @MinLength(4)
   @MaxLength(128)
   company: string;
+
+  datafast_visitor_id: string;
 }
 
 // Re-export Provider for convenience

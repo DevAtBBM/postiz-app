@@ -4,7 +4,7 @@ import clsx from 'clsx';
 import { VideoOrImage } from '@gitroom/react/helpers/video.or.image';
 import { FC } from 'react';
 import { textSlicer } from '@gitroom/helpers/utils/count.length';
-import Image from 'next/image';
+import SafeImage from '@gitroom/react/helpers/safe.image';
 import { useLaunchStore } from '@gitroom/frontend/components/new-launch/store';
 import { stripHtmlValidation } from '@gitroom/helpers/utils/strip.html.validation';
 
@@ -49,7 +49,7 @@ export const GeneralPreviewComponent: FC<{
   });
 
   return (
-    <div className={clsx('w-full px-[16px]')}>
+    <div className={clsx('w-full p-[15px]')}>
       <div className="w-full h-full relative flex flex-col">
         {renderContent.map((value, index) => (
           <div
@@ -60,7 +60,7 @@ export const GeneralPreviewComponent: FC<{
               index === renderContent.length - 1 ? 'pb-[12px]' : 'pb-[24px]'
             )}
           >
-            <div className="w-[40px] flex flex-col items-center">
+            <div className="min-w-[40px] h-[40px] min-h-[40px] w-[40px] flex flex-col items-center">
               <div className="relative">
                 <img
                   src={
@@ -73,9 +73,9 @@ export const GeneralPreviewComponent: FC<{
                 />
 
                 {current !== 'global' && (
-                  <Image
+                  <SafeImage
                     src={`/icons/platforms/${integration?.identifier}.png`}
-                    className="rounded-full absolute z-10 -bottom-[5px] -end-[5px] border border-fifth"
+                    className="min-w-[20px] min-h-[20px] rounded-full absolute z-10 -bottom-[5px] -end-[5px] border border-fifth"
                     alt={integration.identifier}
                     width={20}
                     height={20}
@@ -121,7 +121,7 @@ export const GeneralPreviewComponent: FC<{
                   className={clsx(
                     'w-full rounded-[16px] overflow-hidden mt-[12px]',
                     value?.images?.length > 3
-                      ? 'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-[4px]'
+                      ? 'grid grid-cols-2 gap-[4px]'
                       : 'flex gap-[4px]'
                   )}
                 >

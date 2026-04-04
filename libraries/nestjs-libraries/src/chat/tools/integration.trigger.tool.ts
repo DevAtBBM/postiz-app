@@ -1,4 +1,4 @@
-import { AgentToolInterface, ToolReturn } from '@gitroom/nestjs-libraries/chat/agent.tool.interface';
+import { AgentToolInterface } from '@gitroom/nestjs-libraries/chat/agent.tool.interface';
 import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
 import { Injectable } from '@nestjs/common';
@@ -6,24 +6,35 @@ import {
   IntegrationManager,
   socialIntegrationList,
 } from '@gitroom/nestjs-libraries/integrations/integration.manager';
-import { validationMetadatasToSchemas } from 'class-validator-jsonschema';
 import { IntegrationService } from '@gitroom/nestjs-libraries/database/prisma/integrations/integration.service';
 import { RefreshToken } from '@gitroom/nestjs-libraries/integrations/social.abstract';
 import { timer } from '@gitroom/helpers/utils/timer';
+import { checkAuth } from '@gitroom/nestjs-libraries/chat/auth.context';
+import { RefreshIntegrationService } from '@gitroom/nestjs-libraries/integrations/refresh.integration.service';
 
 @Injectable()
 export class IntegrationTriggerTool implements AgentToolInterface {
   constructor(
     private _integrationManager: IntegrationManager,
-    private _integrationService: IntegrationService
+    private _integrationService: IntegrationService,
+    private _refreshIntegrationService: RefreshIntegrationService
   ) {}
   name = 'triggerTool';
 
-  run(): ToolReturn {
+  run() {
     return createTool({
       id: 'triggerTool',
       description: `After using the integrationSchema, we sometimes miss details we can\'t ask from the user, like ids.
       Sometimes this tool requires to user prompt for some settings, like a word to search for. methodName is required [input:callable-tools]`,
+      mcp: {
+        annotations: {
+          title: 'Trigger Integration Tool',
+          readOnlyHint: true,
+          destructiveHint: false,
+          idempotentHint: false,
+          openWorldHint: true,
+        },
+      },
       inputSchema: z.object({
         integrationId: z.string().describe('The id of the integration'),
         methodName: z
@@ -39,19 +50,19 @@ export class IntegrationTriggerTool implements AgentToolInterface {
         ),
       }),
       outputSchema: z.object({
-        output: z.any(),
+        output: z.array(z.record(z.string(), z.any())),
       }),
-      execute: async ({ runtimeContext, context }) => {
-        console.log('triggerTool', context);
-        // @ts-ignore
+      execute: async (inputData, context) => {
+        checkAuth(inputData, context);
+        console.log('triggerTool', inputData);
         const organizationId = JSON.parse(
-          runtimeContext.get('organization') as string
+          (context?.requestContext as any)?.get('organization') as string
         ).id;
 
         const getIntegration =
           await this._integrationService.getIntegrationById(
             organizationId,
-            context.integrationId
+            inputData.integrationId
           );
 
         if (!getIntegration) {
@@ -74,10 +85,10 @@ export class IntegrationTriggerTool implements AgentToolInterface {
         if (
           // @ts-ignore
           !tools[integrationProvider.identifier].some(
-            (p) => p.methodName === context.methodName
+            (p) => p.methodName === inputData.methodName
           ) ||
           // @ts-ignore
-          !integrationProvider[context.methodName]
+          !integrationProvider[inputData.methodName]
         ) {
           return { output: 'tool not found' };
         }
@@ -85,14 +96,14 @@ export class IntegrationTriggerTool implements AgentToolInterface {
         while (true) {
           try {
             // @ts-ignore
-            const load = await integrationProvider[context.methodName](
+            const load = await integrationProvider[inputData.methodName](
               getIntegration.token,
-              context.dataSchema.reduce(
-                (all, current) => ({
+              inputData.dataSchema.reduce(
+                (all: Record<string, string>, current: { key: string; value: string }) => ({
                   ...all,
                   [current.key]: current.value,
                 }),
-                {}
+                {} as Record<string, string>
               ),
               getIntegration.internalId,
               getIntegration
@@ -100,40 +111,12 @@ export class IntegrationTriggerTool implements AgentToolInterface {
 
             return { output: load };
           } catch (err) {
-            console.log(err);
             if (err instanceof RefreshToken) {
-              const {
-                accessToken,
-                refreshToken,
-                expiresIn,
-                additionalSettings,
-              } = await integrationProvider.refreshToken(
-                getIntegration.refreshToken
+              const data = await this._refreshIntegrationService.refresh(
+                getIntegration
               );
 
-              if (accessToken) {
-                await this._integrationService.createOrUpdateIntegration(
-                  additionalSettings,
-                  !!integrationProvider.oneTimeToken,
-                  getIntegration.organizationId,
-                  getIntegration.name,
-                  getIntegration.picture!,
-                  'social',
-                  getIntegration.internalId,
-                  getIntegration.providerIdentifier,
-                  accessToken,
-                  refreshToken,
-                  expiresIn
-                );
-
-                getIntegration.token = accessToken;
-
-                if (integrationProvider.refreshWait) {
-                  await timer(10000);
-                }
-
-                continue;
-              } else {
+              if (!data) {
                 await this._integrationService.disconnectChannel(
                   organizationId,
                   getIntegration
@@ -142,6 +125,19 @@ export class IntegrationTriggerTool implements AgentToolInterface {
                   output:
                     'We had to disconnect the channel as the token expired',
                 };
+              }
+
+              const { accessToken } = data;
+
+              if (accessToken) {
+                getIntegration.token = accessToken;
+
+                if (integrationProvider.refreshWait) {
+                  await timer(10000);
+                }
+
+                continue;
+              } else {
               }
             }
             return { output: 'Unexpected error' };

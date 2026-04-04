@@ -30,6 +30,7 @@ const getCountryCodeForFlag = (languageCode: string) => {
   if (languageCode === 'he') return 'IL';
   if (languageCode === 'ja') return 'JP';
   if (languageCode === 'ko') return 'KR';
+  if (languageCode === 'vi') return 'VN';
 
   // Check if language code itself is a valid country code
   try {
@@ -71,6 +72,9 @@ export const ChangeLanguageComponent = () => {
     setCookie(language);
     i18next.changeLanguage(language);
     modals.closeCurrent();
+    const rtlLanguages = ['he', 'ar'];
+    const dir = rtlLanguages.includes(language) ? 'rtl' : 'ltr';
+    document.documentElement.setAttribute('dir', dir);
   };
 
   // Function to get language name in its native script
@@ -89,7 +93,7 @@ export const ChangeLanguageComponent = () => {
 
   return (
     <div className="relative">
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+      <div className="grid grid-cols-4 gap-2">
         {availableLanguages.map((language) => (
           <div
             className={clsx(

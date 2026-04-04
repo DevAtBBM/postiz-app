@@ -62,7 +62,9 @@ class CloudflareStorage implements IUploadProvider {
     const contentType =
       loadImage?.headers?.get('content-type') ||
       loadImage?.headers?.get('Content-Type');
-    const extension = getExtension(contentType)!;
+    const extension = getExtension(contentType) ||
+      path.split('?')[0].split('#')[0].split('.').pop() ||
+      'bin';
     const id = makeId(10);
 
     const params = {
@@ -84,14 +86,13 @@ class CloudflareStorage implements IUploadProvider {
       const id = makeId(10);
       const extension = mime.extension(file.mimetype) || '';
 
-    // Create the PutObjectCommand to upload the file to Cloudflare R2
-    const command = new PutObjectCommand({
-      Bucket: this._bucketName,
-      ACL: 'public-read',
-      Key: `${id}.${extension}`,
-      Body: file.buffer,
-      ContentType: file.mimetype,
-    });
+      // Create the PutObjectCommand to upload the file to Cloudflare R2
+      const command = new PutObjectCommand({
+        Bucket: this._bucketName,
+        ACL: 'public-read',
+        Key: `${id}.${extension}`,
+        Body: file.buffer,
+      });
 
       await this._client.send(command);
 

@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { UsersRepository } from '@gitroom/nestjs-libraries/database/prisma/users/users.repository';
 import { Provider } from '@prisma/client';
-import { ItemsDto } from '@gitroom/nestjs-libraries/dtos/marketplace/items.dto';
 import { UserDetailDto } from '@gitroom/nestjs-libraries/dtos/users/user.details.dto';
 import { EmailNotificationsDto } from '@gitroom/nestjs-libraries/dtos/users/email-notifications.dto';
 import { OrganizationRepository } from '@gitroom/nestjs-libraries/database/prisma/organizations/organization.repository';
@@ -37,18 +36,6 @@ export class UsersService {
     return this._usersRepository.updatePassword(id, password);
   }
 
-  changeAudienceSize(userId: string, audience: number) {
-    return this._usersRepository.changeAudienceSize(userId, audience);
-  }
-
-  changeMarketplaceActive(userId: string, active: boolean) {
-    return this._usersRepository.changeMarketplaceActive(userId, active);
-  }
-
-  getMarketplacePeople(orgId: string, userId: string, body: ItemsDto) {
-    return this._usersRepository.getMarketplacePeople(orgId, userId, body);
-  }
-
   getPersonal(userId: string) {
     return this._usersRepository.getPersonal(userId);
   }
@@ -63,17 +50,5 @@ export class UsersService {
 
   updateEmailNotifications(userId: string, body: EmailNotificationsDto) {
     return this._usersRepository.updateEmailNotifications(userId, body);
-  }
-
-  getUserWithVerificationData(email: string) {
-    return this._usersRepository.getUserWithVerificationData(email);
-  }
-
-  resetEmailVerificationAttempts(userId: string) {
-    return this._usersRepository.resetEmailVerificationAttempts(userId);
-  }
-
-  incrementEmailVerificationAttempts(userId: string) {
-    return this._usersRepository.incrementEmailVerificationAttempts(userId);
   }
 }

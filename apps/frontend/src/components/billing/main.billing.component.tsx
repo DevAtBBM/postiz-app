@@ -6,7 +6,7 @@ import { Button } from '@gitroom/react/form/button';
 import { useFetch } from '@gitroom/helpers/utils/custom.fetch';
 import { Subscription } from '@prisma/client';
 import { useDebouncedCallback } from 'use-debounce';
-import ReactLoading from 'react-loading';
+import ReactLoading from '@gitroom/frontend/components/layout/loading';
 import { deleteDialog } from '@gitroom/react/helpers/delete.dialog';
 import { useToaster } from '@gitroom/react/toaster/toaster';
 import dayjs from 'dayjs';
@@ -18,20 +18,21 @@ import { useUser } from '@gitroom/frontend/components/layout/user.context';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useVariables } from '@gitroom/react/helpers/variable.context';
 import { useModals } from '@gitroom/frontend/components/layout/new-modal';
-import { TopTitle } from '@gitroom/frontend/components/launches/helpers/top.title.component';
 import { Textarea } from '@gitroom/react/form/textarea';
 import { useFireEvents } from '@gitroom/helpers/utils/use.fire.events';
 import { useUtmUrl } from '@gitroom/helpers/utils/utm.saver';
-import { useTolt } from '@gitroom/frontend/components/layout/tolt.script';
 import { useTrack } from '@gitroom/react/helpers/use.track';
 import { TrackEnum } from '@gitroom/nestjs-libraries/user/track.enum';
 import { PurchaseCrypto } from '@gitroom/frontend/components/billing/purchase.crypto';
 import { useT } from '@gitroom/react/translation/get.transation.service.client';
 import { FinishTrial } from '@gitroom/frontend/components/billing/finish.trial';
+import { newDayjs } from '@gitroom/frontend/components/layout/set.timezone';
+import { useDubClickId } from '@gitroom/frontend/components/layout/dubAnalytics';
+import { LogoutComponent } from '@gitroom/frontend/components/layout/logout.component';
 
 export const Prorate: FC<{
   period: 'MONTHLY' | 'YEARLY';
-  pack: 'STANDARD' | 'PRO' | 'ULTIMATE';
+  pack: 'STANDARD' | 'PRO';
 }> = (props) => {
   const { period, pack } = props;
   const t = useT();
@@ -76,7 +77,7 @@ export const Prorate: FC<{
   );
 };
 export const Features: FC<{
-  pack: 'FREE' | 'STANDARD' | 'PRO' | 'ULTIMATE';
+  pack: 'FREE' | 'STANDARD' | 'PRO';
 }> = (props) => {
   const { pack } = props;
   const features = useMemo(() => {
@@ -134,57 +135,59 @@ export const Features: FC<{
     </div>
   );
 };
+
+const Accept: FC<{ resolve: (res: boolean) => void }> = ({ resolve }) => {
+  const [loading, setLoading] = useState(false);
+  const fetch = useFetch();
+  const toaster = useToaster();
+
+  const apply = useCallback(async () => {
+    setLoading(true);
+    await fetch('/billing/apply-discount', {
+      method: 'POST',
+    });
+
+    resolve(true);
+    toaster.show('50% discount applied successfully');
+  }, []);
+
+  return (
+    <div>
+      <div className="mb-[20px]">
+        Would you accept 50% discount for 3 months instead? 🙏🏻
+      </div>
+      <div className="flex gap-[10px]">
+        <Button loading={loading} onClick={apply}>
+          Apply 50% discount for 3 months
+        </Button>
+        <Button onClick={() => resolve(false)} className="!bg-red-800">
+          Cancel my subscription
+        </Button>
+      </div>
+    </div>
+  );
+};
 const Info: FC<{
   proceed: (feedback: string) => void;
-  isReactivation?: boolean;
 }> = (props) => {
   const [feedback, setFeedback] = useState('');
   const modal = useModals();
   const events = useFireEvents();
   const cancel = useCallback(() => {
     props.proceed(feedback);
-    events(props.isReactivation ? 'reactivate_subscription' : 'cancel_subscription');
+    events('cancel_subscription');
     modal.closeAll();
-  }, [modal, feedback, props.isReactivation]);
+  }, [modal, feedback]);
 
   const t = useT();
 
   return (
-    <div className="relative flex gap-[20px] flex-col flex-1 rounded-[4px] border border-customColor6 bg-sixth p-[16px] pt-0 w-[500px]">
-      <TopTitle title="Oh no" />
-      <button
-        className="outline-none absolute end-[20px] top-[15px] mantine-UnstyledButton-root mantine-ActionIcon-root hover:bg-tableBorder cursor-pointer mantine-Modal-close mantine-1dcetaa"
-        type="button"
-      >
-        <svg
-          viewBox="0 0 15 15"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-          width="16"
-          height="16"
-        >
-          <path
-            d="M11.7816 4.03157C12.0062 3.80702 12.0062 3.44295 11.7816 3.2184C11.5571 2.99385 11.193 2.99385 10.9685 3.2184L7.50005 6.68682L4.03164 3.2184C3.80708 2.99385 3.44301 2.99385 3.21846 3.2184C2.99391 3.44295 2.99391 3.80702 3.21846 4.03157L6.68688 7.49999L3.21846 10.9684C2.99391 11.193 2.99391 11.557 3.21846 11.7816C3.44301 12.0061 3.80708 12.0061 4.03164 11.7816L7.50005 8.31316L10.9685 11.7816C11.193 12.0061 11.5571 12.0061 11.7816 11.7816C12.0062 11.557 12.0062 11.193 11.7816 10.9684L8.31322 7.49999L11.7816 4.03157Z"
-            fill="currentColor"
-            fillRule="evenodd"
-            clipRule="evenodd"
-          ></path>
-        </svg>
-      </button>
-
+    <div className="relative flex gap-[20px] flex-col flex-1 rounded-[4px]">
       <div>
-        {props.isReactivation
-          ? t('we_are_glad_to_have_you_back', 'Welcome back! We\'re glad to have you back.')
-          : t('we_are_sorry_to_see_you_go', 'We are sorry to see you go :(')
-        }
-        <br />
-        {props.isReactivation
-          ? t('what_brought_you_back', 'What brought you back to using our service?')
-          : t(
-              'would_you_mind_shortly_tell_us_what_we_could_have_done_better',
-              'Would you mind shortly tell us what we could have done better?'
-          )
-        }
+        {t(
+          'would_you_mind_shortly_tell_us_what_we_could_have_done_better',
+          'Would you mind shortly tell us what we could have done better?'
+        )}
       </div>
       <div>
         <Textarea
@@ -200,11 +203,7 @@ const Info: FC<{
         <Button disabled={feedback.length < 20} onClick={cancel}>
           {feedback.length < 20
             ? t('please_add_at_least', 'Please add at least 20 chars')
-            : (props.isReactivation
-                ? t('reactivate_subscription_button', 'Reactivate Subscription')
-                : t('cancel_subscription', 'Cancel Subscription')
-              )
-          }
+            : t('cancel_subscription', 'Cancel Subscription')}
         </Button>
       </div>
     </div>
@@ -219,10 +218,10 @@ export const MainBillingComponent: FC<{
   const fetch = useFetch();
   const toast = useToaster();
   const user = useUser();
+  const dub = useDubClickId();
   const modal = useModals();
   const router = useRouter();
   const utm = useUtmUrl();
-  const tolt = useTolt();
   const track = useTrack();
   const t = useT();
   const queryParams = useSearchParams();
@@ -240,7 +239,6 @@ export const MainBillingComponent: FC<{
   const [monthlyOrYearly, setMonthlyOrYearly] = useState<'on' | 'off'>(
     period === 'MONTHLY' ? 'off' : 'on'
   );
-  const [selectedProvider, setSelectedProvider] = useState<'paypal' | 'razorpay'>('paypal');
   const [initialChannels, setInitialChannels] = useState(
     sub?.totalChannels || 1
   );
@@ -256,57 +254,42 @@ export const MainBillingComponent: FC<{
     }
     setSubscription(sub);
   }, [sub]);
+  const [selectedProvider, setSelectedProvider] = useState<'stripe' | 'razorpay'>('stripe');
+
   const updatePayment = useCallback(async () => {
     const { portal } = await (await fetch('/billing/portal')).json();
     window.location.href = portal;
   }, []);
 
   const handleRazorpaySubscriptionModal = useCallback(async (subscriptionData: any) => {
-    // Load Razorpay script if not already loaded
     if (!(window as any).Razorpay) {
       const script = document.createElement('script');
       script.src = 'https://checkout.razorpay.com/v1/checkout.js';
       script.async = true;
       document.body.appendChild(script);
-
-      await new Promise((resolve) => {
-        script.onload = resolve;
-      });
+      await new Promise((resolve) => { script.onload = resolve; });
     }
 
     const options = {
-      key: subscriptionData.key, // Razorpay key ID
-      subscription_id: subscriptionData.subscriptionId, // Use subscription_id instead of order_id
+      key: subscriptionData.key,
+      subscription_id: subscriptionData.subscriptionId,
       name: 'Postnify',
       description: `${subscriptionData.planName} Plan Subscription`,
-      handler: async function (response: any) {
-        // Subscription payment successful
-        toast.show('Payment successful! Your subscription is being activated and may take a few minutes to reflect in your account.', { duration: 55000 });
-        // Reset loading state
+      handler: async function () {
+        toast.show('Payment successful! Your subscription is being activated.');
         setLoading(false);
-        // Refresh user data to update subscription status
         await mutate('/user/self');
-        await mutate('/user/subscription');
-        // Redirect to billing page to show updated subscription
         router.push('/billing');
       },
       modal: {
-        ondismiss: function() {
-          // User closed the modal without completing payment
+        ondismiss: function () {
           toast.show('Payment cancelled. You can try again anytime.');
-          // Reset loading state
           setLoading(false);
         },
         confirm_close: true,
         animation: true,
       },
-      prefill: {
-        email: '', // Could get from user context
-        contact: '',
-      },
-      theme: {
-        color: '#3399cc',
-      },
+      theme: { color: '#3399cc' },
     };
 
     const rzp = new (window as any).Razorpay(options);
@@ -325,68 +308,86 @@ export const MainBillingComponent: FC<{
     return subscription?.subscriptionTier;
   }, [subscription, initialChannels, monthlyOrYearly, period]);
   const moveToCheckout = useCallback(
-    (billing: 'STANDARD' | 'PRO' | 'ULTIMATE' | 'FREE') => async () => {
-      const messages = [];
-      if (
-        !pricing[billing].team_members &&
-        pricing[subscription?.subscriptionTier!]?.team_members
-      ) {
-        messages.push(
-          `Your team members will be removed from your organization`
-        );
-      }
-      if (billing === 'FREE') {
-        // Check if subscription is already cancelled
-        if (subscription?.cancelAt) {
-          // This is a reactivation request
-          const reactivateConfirm = await deleteDialog(
-            'Are you sure you want to reactivate your subscription? It will resume billing from your next payment cycle.',
-            'Yes, reactivate',
-            'Reactivate Subscription'
-          );
+    (billing: 'STANDARD' | 'PRO' | 'FREE', reactivate = false) =>
+      async () => {
+        if (reactivate) {
+          setLoading(true);
+          const { cancel_at } = await (
+            await fetch('/billing/cancel', {
+              method: 'POST',
+              body: JSON.stringify({
+                feedback: '',
+              }),
+              headers: {
+                'Content-Type': 'application/json',
+              },
+            })
+          ).json();
+          setSubscription((subs) => ({
+            ...subs!,
+            cancelAt: cancel_at,
+          }));
 
-          if (reactivateConfirm) {
-            setLoading(true);
-            const result = await (
-              await fetch('/billing/cancel', {
-                method: 'POST',
-                body: JSON.stringify({
-                  feedback: 'Reactivating subscription',
-                }),
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-              })
-            ).json();
-            setSubscription((subs) => ({
-              ...subs!,
-              cancelAt: result.cancel_at,
-            }));
-            toast.show('Subscription reactivated successfully');
-            setLoading(false);
-          }
-        } else {
-          // This is a cancellation request
+          toast.show('Subscription reactivated successfully');
+          setLoading(false);
+          return;
+        }
+
+        const messages = [];
+        if (
+          !pricing[billing].team_members &&
+          pricing[subscription?.subscriptionTier!]?.team_members
+        ) {
+          messages.push(
+            `Your team members will be removed from your organization`
+          );
+        }
+        if (billing === 'FREE') {
           if (
-            await deleteDialog(
-              `Are you sure you want to cancel your subscription? ${messages.join(
-                ', '
-              )}`,
+            subscription?.cancelAt ||
+            (await deleteDialog(
+              `Are you sure you want to cancel your subscription?
+              ${messages.join(', ')}`,
               'Yes, cancel',
               'Cancel Subscription'
-            )
+            ))
           ) {
+            const checkDiscount = await (
+              await fetch('/billing/check-discount')
+            ).json();
+            if (checkDiscount.offerCoupon) {
+              const info = await new Promise((res) => {
+                modal.openModal({
+                  title: 'Before you cancel',
+                  withCloseButton: true,
+                  classNames: {
+                    modal: 'bg-transparent text-textColor',
+                  },
+                  children: <Accept resolve={res} />,
+                });
+              });
+
+              modal.closeAll();
+
+              if (info) {
+                return;
+              }
+            }
+
             const info = await new Promise((res) => {
               modal.openModal({
-                title: '',
-                withCloseButton: false,
+                title: t(
+                  'we_are_sorry_to_see_you_go',
+                  'We are sorry to see you go :('
+                ),
+                withCloseButton: true,
                 classNames: {
                   modal: 'bg-transparent text-textColor',
                 },
-                children: <Info proceed={(e) => res(e)} isReactivation={false} />,
-                size: 'auto',
+                children: <Info proceed={(e) => res(e)} />,
               });
             });
+
             setLoading(true);
             const { cancel_at } = await (
               await fetch('/billing/cancel', {
@@ -403,83 +404,78 @@ export const MainBillingComponent: FC<{
               ...subs!,
               cancelAt: cancel_at,
             }));
-            toast.show('Subscription set to canceled successfully');
+            if (cancel_at)
+              toast.show('Subscription set to canceled successfully');
             setLoading(false);
           }
+          return;
         }
-        return;
-      }
-      if (
-        messages.length &&
-        !(await deleteDialog(messages.join(', '), 'Yes, continue'))
-      ) {
-        return;
-      }
-      setLoading(true);
-      const response = await (
-        await fetch('/billing/subscribe', {
-          method: 'POST',
-          body: JSON.stringify({
-            period: monthlyOrYearly === 'on' ? 'YEARLY' : 'MONTHLY',
-            utm,
-            billing,
-            tolt: tolt(),
-            provider: selectedProvider,
-          }),
-        })
-      ).json();
-
-      const { url, portal, provider: responseProvider, redirectUrls } = response;
-
-      if (url) {
-        await track(TrackEnum.InitiateCheckout, {
-          value:
-            pricing[billing][
-              monthlyOrYearly === 'on' ? 'year_price' : 'month_price'
-            ],
-        });
-
-        window.location.href = url;
-        return;
-      }
-
-      if (responseProvider === 'razorpay') {
-        // Handle Razorpay subscription modal checkout
-        await handleRazorpaySubscriptionModal(response);
-        return;
-      }
-      if (portal) {
         if (
-          await deleteDialog(
-            'We could not charge your credit card, please update your payment method',
-            'Update',
-            'Payment Method Required'
-          )
+          messages.length &&
+          !(await deleteDialog(messages.join(', '), 'Yes, continue'))
         ) {
-          window.open(portal);
+          return;
         }
-      } else {
-        setPeriod(monthlyOrYearly === 'on' ? 'YEARLY' : 'MONTHLY');
-        setSubscription((subs) => ({
-          ...subs!,
-          subscriptionTier: billing,
-          cancelAt: null,
-        }));
-        mutate(
-          '/user/self',
-          {
-            ...user,
-            tier: billing,
-          },
-          {
-            revalidate: false,
+        setLoading(true);
+        const response = await (
+          await fetch('/billing/subscribe', {
+            method: 'POST',
+            body: JSON.stringify({
+              period: monthlyOrYearly === 'on' ? 'YEARLY' : 'MONTHLY',
+              utm,
+              billing,
+              provider: selectedProvider,
+              ...(dub ? { dub } : {}),
+            }),
+          })
+        ).json();
+        const { url, portal } = response;
+        if (selectedProvider === 'razorpay' && response.subscriptionId) {
+          await handleRazorpaySubscriptionModal(response);
+          return;
+        }
+        if (url) {
+          await track(TrackEnum.InitiateCheckout, {
+            value:
+              pricing[billing][
+                monthlyOrYearly === 'on' ? 'year_price' : 'month_price'
+              ],
+          });
+          window.location.href = url;
+          return;
+        }
+        if (portal) {
+          if (
+            await deleteDialog(
+              'We could not charge your credit card, please update your payment method',
+              'Update',
+              'Payment Method Required'
+            )
+          ) {
+            window.open(portal);
           }
-        );
-        toast.show('Subscription updated successfully');
-      }
-      setLoading(false);
-    },
-    [monthlyOrYearly, subscription, user, utm, selectedProvider]
+        } else {
+          setPeriod(monthlyOrYearly === 'on' ? 'YEARLY' : 'MONTHLY');
+          setSubscription((subs) => ({
+            ...subs!,
+            subscriptionTier: billing,
+            cancelAt: null,
+          }));
+          mutate(
+            '/user/self',
+            {
+              ...user,
+              tier: billing,
+            },
+            {
+              revalidate: false,
+            }
+          );
+          toast.show('Subscription updated successfully');
+        }
+        setLoading(false);
+      },
+    [monthlyOrYearly, subscription, user, utm]
   );
   if (user?.isLifetime) {
     router.replace('/');
@@ -491,7 +487,7 @@ export const MainBillingComponent: FC<{
         <div className="flex-1 text-[20px]">{t('plans', 'Plans')}</div>
         <div className="flex items-center gap-[16px]">
           <div>{t('monthly', 'MONTHLY')}</div>
-          <div className="sliderDiv">
+          <div>
             <Slider value={monthlyOrYearly} onChange={setMonthlyOrYearly} />
           </div>
           <div>{t('yearly', 'YEARLY')}</div>
@@ -499,72 +495,43 @@ export const MainBillingComponent: FC<{
       </div>
 
       {/* Payment Provider Selection */}
-      <div className="flex justify-center mt-[1px]">
-        <div className="flex gap-4 p-4 bg-sixth border border-customColor6 rounded-lg">
-          <div className="flex items-center gap-2">
+      <div className="flex justify-center mt-[8px] mb-[8px]">
+        <div className="flex gap-4 p-3 bg-sixth border border-customColor6 rounded-lg text-sm">
+          <label className="flex items-center gap-2 cursor-pointer">
             <input
               type="radio"
-              id="paypal"
               name="paymentProvider"
-              value="paypal"
-              checked={selectedProvider === 'paypal'}
-              onChange={(e) => setSelectedProvider(e.target.value as 'paypal')}
+              value="stripe"
+              checked={selectedProvider === 'stripe'}
+              onChange={() => setSelectedProvider('stripe')}
               className="w-4 h-4"
             />
-            <label htmlFor="paypal" className="cursor-pointer text-sm font-medium">
-              PayPal
-            </label>
-          </div>
-          <div className="flex items-center gap-2">
+            Stripe
+          </label>
+          <label className="flex items-center gap-2 cursor-pointer">
             <input
               type="radio"
-              id="razorpay"
               name="paymentProvider"
               value="razorpay"
               checked={selectedProvider === 'razorpay'}
-              onChange={(e) => setSelectedProvider(e.target.value as 'razorpay')}
+              onChange={() => setSelectedProvider('razorpay')}
               className="w-4 h-4"
             />
-            <label htmlFor="razorpay" className="cursor-pointer text-sm font-medium">
-              Razorpay (Guest Checkout)
-            </label>
-          </div>
-        </div>
-      </div>
-
-      {/* Yearly Savings Message */}
-      <div className="flex justify-center mt-[1px]">
-        <div className="px-6 py-3 bg-green-500/10 border border-green-500/20 rounded-full text-md text-green-600 font-medium">
-          🎉 {t('yearly_saving_message', 'Get 2 months FREE with annual billing!')}
+            Razorpay (INR)
+          </label>
         </div>
       </div>
 
       {finishTrial && <FinishTrial close={() => setFinishTrial(false)} />}
       <div className="flex gap-[16px] [@media(max-width:1024px)]:flex-col [@media(max-width:1024px)]:text-center">
         {Object.entries(pricing)
-          .filter(([name]) => name !== 'TEAM') // Always show FREE, but hide TEAM
-          .map(([name, values]) => {
-            const isCurrentPlan = currentPackage === name.toUpperCase();
-            return (
-              <div
-                key={name}
-                className={clsx(
-                  "flex-1 bg-sixth border rounded-[4px] p-[24px] gap-[16px] flex flex-col [@media(max-width:1024px)]:items-center",
-                  isCurrentPlan
-                    ? "border-green-500 shadow-lg bg-green-50/10"
-                    : "border-customColor6"
-                )}
-              >
-              <div className="relative">
-                <div className="text-[18px] flex items-center gap-2">
-                  {name}
-                  {isCurrentPlan && (
-                    <span className="bg-green-500 text-white text-xs px-2 py-1 rounded-full">
-                      Current Plan
-                    </span>
-                  )}
-                </div>
-              </div>
+          .filter((f) => !isGeneral || f[0] !== 'FREE')
+          .map(([name, values]) => (
+            <div
+              key={name}
+              className="flex-1 bg-sixth border border-customColor6 rounded-[4px] p-[24px] gap-[16px] flex flex-col [@media(max-width:1024px)]:items-center"
+            >
+              <div className="text-[18px]">{name}</div>
               <div className="text-[38px] flex gap-[2px] items-center">
                 <div>
                   $
@@ -582,7 +549,7 @@ export const MainBillingComponent: FC<{
                   <div className="gap-[3px] flex flex-col">
                     <div>
                       <Button
-                        onClick={moveToCheckout('FREE')}
+                        onClick={moveToCheckout('FREE', true)}
                         loading={loading}
                       >
                         {t(
@@ -603,48 +570,27 @@ export const MainBillingComponent: FC<{
                     className={clsx(
                       subscription &&
                         name.toUpperCase() === 'FREE' &&
-                        (currentPackage !== 'FREE' || subscription?.cancelAt) &&
                         '!bg-red-500'
                     )}
                     onClick={moveToCheckout(
-                      name.toUpperCase() as 'STANDARD' | 'PRO' | 'ULTIMATE'
+                      name.toUpperCase() as 'STANDARD' | 'PRO'
                     )}
                   >
-                    {(() => {
-                      if (currentPackage === name.toUpperCase()) {
-                        return 'Current Plan';
-                      }
-
-                      if (name.toUpperCase() === 'FREE') {
-                        if (subscription?.cancelAt) {
-                          return `Downgrade on ${dayjs
+                    {currentPackage === name.toUpperCase()
+                      ? 'Current Plan'
+                      : name.toUpperCase() === 'FREE'
+                      ? subscription?.cancelAt
+                        ? `Downgrade on ${dayjs
                             .utc(subscription?.cancelAt)
                             .local()
-                            .format('D MMM, YYYY')}`;
-                        } else if (currentPackage === 'FREE') {
-                          return 'Cancel subscription';
-                        } else {
-                          return `Downgrade to ${name}`;
-                        }
-                      }
-
-                      // Determine if this is an upgrade or downgrade
-                      const planHierarchy = ['FREE', 'STANDARD', 'PRO', 'ULTIMATE'];
-                      const currentIndex = planHierarchy.indexOf(currentPackage);
-                      const targetIndex = planHierarchy.indexOf(name.toUpperCase());
-
-                      if (targetIndex > currentIndex) {
-                        const isFreeUser = currentPackage === 'FREE';
-                        if (isFreeUser && user?.allowTrial) {
-                          return t('start_7_days_free_trial', 'Start 7 days free trial');
-                        }
-                        return `Upgrade`;
-                      } else if (targetIndex < currentIndex) {
-                        return `Downgrade to ${name}`;
-                      } else {
-                        return 'Purchase';
-                      }
-                    })()}
+                            .format('D MMM, YYYY')}`
+                        : 'Cancel subscription'
+                      : // @ts-ignore
+                      (user?.tier === 'FREE' ||
+                          user?.tier?.current === 'FREE') &&
+                        user.allowTrial
+                      ? t('start_7_days_free_trial', 'Start 7 days free trial')
+                      : 'Purchase'}
                   </Button>
                 )}
                 {subscription &&
@@ -653,43 +599,23 @@ export const MainBillingComponent: FC<{
                   !!name && (
                     <Prorate
                       period={monthlyOrYearly === 'on' ? 'YEARLY' : 'MONTHLY'}
-                      pack={name.toUpperCase() as 'STANDARD' | 'PRO' | 'ULTIMATE'}
+                      pack={name.toUpperCase() as 'STANDARD' | 'PRO'}
                     />
                   )}
               </div>
-                <div className="relative">
-                  <div className="text-[18px] flex items-center gap-2">
-                    {name}
-                    {isCurrentPlan && (
-                      <span className="bg-green-500 text-white text-xs px-2 py-1 rounded-full">
-                        Current Plan
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <Features
-                  pack={name.toUpperCase() as 'FREE' | 'STANDARD' | 'PRO' | 'ULTIMATE'}
-                />
-              </div>
-            );
-          })}
+              <Features
+                pack={name.toUpperCase() as 'FREE' | 'STANDARD' | 'PRO'}
+              />
+            </div>
+          ))}
       </div>
-      {/* {!subscription?.id && <PurchaseCrypto />} */}
+      {!subscription?.id && <PurchaseCrypto />}
       {!!subscription?.id && (
-        <div className="flex justify-center mt-[20px] gap-[10px] flex-wrap">
-          <Button onClick={() => router.push('/billing/transactions')}>
-            {t('transaction_history', 'Transaction History')}
-          </Button>
-          <Button onClick={() => router.push('/billing/failed-payments')}>
-            {t('failed_payments', 'Failed Payments')}
-          </Button>
-          <Button onClick={() => router.push('/billing/issues')}>
-            {t('billing_issues', 'Billing Issues')}
-          </Button>
+        <div className="flex justify-center mt-[20px] gap-[10px]">
           <Button onClick={updatePayment}>
             {t(
-              'update_payment_method',
-              'Update Payment Method'
+              'update_payment_method_invoices_history',
+              'Update Payment Method / Invoices History'
             )}
           </Button>
           {isGeneral && !subscription?.cancelAt && (
@@ -701,15 +627,6 @@ export const MainBillingComponent: FC<{
               {t('cancel_subscription_1', 'Cancel subscription')}
             </Button>
           )}
-          {isGeneral && subscription?.cancelAt && (
-            <Button
-              className="bg-green-500"
-              loading={loading}
-              onClick={moveToCheckout('FREE')}
-            >
-              {t('reactivate_subscription', 'Reactivate subscription')}
-            </Button>
-          )}
         </div>
       )}
       {subscription?.cancelAt && isGeneral && (
@@ -717,8 +634,8 @@ export const MainBillingComponent: FC<{
           {t(
             'your_subscription_will_be_canceled_at',
             'Your subscription will be canceled at'
-          )}
-          {dayjs(subscription.cancelAt).local().format('D MMM, YYYY')}
+          )}{' '}
+          {newDayjs(subscription.cancelAt).local().format('D MMM, YYYY')}
           <br />
           {t(
             'you_will_never_be_charged_again',
@@ -727,6 +644,9 @@ export const MainBillingComponent: FC<{
         </div>
       )}
       <FAQComponent />
+      <div className="flex justify-center mt-[20px]">
+        <LogoutComponent />
+      </div>
     </div>
   );
 };

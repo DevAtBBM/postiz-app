@@ -1,10 +1,15 @@
+@use './colors.scss';
+@use './polonto.css';
+@use '@uppy/core/dist/style.css' as uppyCore;
+@use '@uppy/dashboard/dist/style.css' as uppyDashboard;
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-@import './colors.scss';
-@import './polonto.css';
-@import '@uppy/core/dist/style.css';
-@import '@uppy/dashboard/dist/style.css';
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
 
 body {
   background: var(--new-bgColor) !important;
@@ -14,16 +19,6 @@ body {
 body * {
   outline: none !important;
 }
-
-body.dark .sliderDiv .border-fifth{border-color:rgb(255 255 255 / 25%);}
-body.light .sliderDiv .border-fifth{border-color:rgb(0 0 0 / 32%);}
-body.light .sliderDiv .bg-customColor5{background-color:rgb(0 0 0 / 25%);}
-.bgCustomCss{background:#fff;}
-body.dark .bgCustomCss{background: #1a1a1a; border: 1px solid #393939;}
-body.light .bg-sixth svg path{fill:#444;}
-.sortdot{}
-.maxTextWidth{max-width:85%; overflow:hidden;}
-.maxTextWidth .truncate{text-overflow: inherit; white-space: inherit;}
 
 .box {
   position: relative;
@@ -689,6 +684,9 @@ html[dir='rtl'] [dir='ltr'] {
 .blur-xs {
   filter: blur(4px);
 }
+.blur-s {
+  filter: blur(5px);
+}
 
 .agent {
   .copilotKitInputContainer {
@@ -746,34 +744,52 @@ html[dir='rtl'] [dir='ltr'] {
   background: transparent !important;
 }
 
-
-
-.dark .overflow-y-auto::-webkit-scrollbar-track {
-  background: #1a1919;
+.menu-shadow {
+  border-radius: 12px;
+  box-shadow: 0 8px 30px 0 rgba(0, 0, 0, 0.5);
 }
 
-.dark .overflow-y-auto::-webkit-scrollbar-thumb {
-  background-color: #6c6c6c; /* your green */
-  border-radius: 999px;
+.post-now {
+  box-shadow: -33px 57px 18px 0 rgba(0, 0, 0, 0.01),
+    -21px 36px 17px 0 rgba(0, 0, 0, 0.06), -12px 20px 14px 0 rgba(0, 0, 0, 0.2),
+    -5px 9px 11px 0 rgba(0, 0, 0, 0.34), -1px 2px 6px 0 rgba(0, 0, 0, 0.39);
 }
 
-/* Firefox */
-.dark * {
-  scrollbar-width: thin;
-  scrollbar-color: #6c6c6c #1a1919;
+.uppyChange .uppy-Dashboard-inner {
+  width: 100% !important;
 }
 
-.editor :not(.removeEditor *).bg-blue-700.text-white, .editor :not(.removeEditor *).bg-red-800.text-white{
-    color:#fff;
+.btnSub:disabled .arrow-change {
+  display: none !important;
+}
+.btnSub:disabled + button {
+  display: none !important;
 }
 
+.tiptap p.is-editor-empty:first-child::before {
+  color: #adb5bd;
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
 
+.w8-max {
+  width: calc(100% / 6);
+  max-width: calc(100% / 6);
+}
 
+.withp3 {
+  width: calc(100% + 9px);
+  height: calc(100% + 6px);
+}
 
+.forceChange .changeColor {
+  background: var(--new-btn-primary) !important;
+  color: #fff !important;
+}
 
-
-
-//html body iframe[title="Stripe developer tools frame"] {
-//  display: none !important;
-//  height: 0 !important;
-//}
+.text-shadow-tags {
+  text-shadow: -1px -1px 0 black, 1px -1px 0 black, -1px 1px 0 black,
+    1px 1px 0 black;
+}

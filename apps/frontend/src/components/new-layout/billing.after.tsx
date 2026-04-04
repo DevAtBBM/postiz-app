@@ -102,7 +102,7 @@ export const BillingAfter = () => {
                 </svg>
               </div>
               <div>
-                {t('cancel_anytime_hassle_free', 'Cancel anytime, hassle-free')}
+                {t('cancel_anytime_hassle_free', 'Cancel anytime, from settings')}
               </div>
             </div>
           </div>

@@ -13,6 +13,7 @@
 </a>
 </p>
 
+<h3 align="center"><strong><a href="https://github.com/gitroomhq/postiz-agent">NEW: check out Postiz agent CLI! perfect for OpenClaw and other agents</a></strong></h3>
 <div align="center">
   <strong>
   <h2>Your ultimate AI social media scheduling tool</h2><br />
@@ -64,11 +65,14 @@
   <a href="https://apps.make.com/postiz">Make.com integration</a>
 </p>
 
+<br /><br />
 
-<br />
+## 🔌 See the leading Postiz features
 
 <p align="center">
-  <video src="https://github.com/user-attachments/assets/05436a01-19c8-4827-b57f-05a5e7637a67" width="100%" />
+  <a href="https://www.youtube.com/watch?v=BdsCVvEYgHU" target="_blank">
+    <img alt="Postiz" src="https://github.com/user-attachments/assets/8b9b7939-da1a-4be5-95be-42c6fce772de" />
+  </a>
 </p>
 
 ## ✨ Features
@@ -76,6 +80,15 @@
 | ![Image 1](https://github.com/user-attachments/assets/a27ee220-beb7-4c7e-8c1b-2c44301f82ef) | ![Image 2](https://github.com/user-attachments/assets/eb5f5f15-ed90-47fc-811c-03ccba6fa8a2) |
 | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
 | ![Image 3](https://github.com/user-attachments/assets/d51786ee-ddd8-4ef8-8138-5192e9cfe7c3) | ![Image 4](https://github.com/user-attachments/assets/91f83c89-22f6-43d6-b7aa-d2d3378289fb) |
+
+### Our Sponsors
+
+| Sponsor |                                  Logo                                   | Description     |
+|---------|:-----------------------------------------------------------------------:|-----------------|
+| [Hostinger](https://www.hostinger.com/vps/docker/postiz?ref=postiz) | <img src=".github/sponsors/hostinger.png" alt="Hostinger" width="500"/> | Hostinger is on a mission to make online success possible for anyone – from developers to aspiring bloggers and business owners |
+| [Virlo](https://dev.virlo.ai/?ref=postiz) | <img src="https://github.com/user-attachments/assets/25182598-5344-45fc-b9cd-e4cfa16aabfd" alt="Virlo" width="500"/> | Virlo is the #1 social media trend spotting and all-in-one GTM tool for teams leveraging short-form video |
+
+
 
 # Intro
 
@@ -88,11 +101,11 @@
 
 ## Tech Stack
 
-- NX (Monorepo)
+- Pnpm workspaces (Monorepo)
 - NextJS (React)
 - NestJS
 - Prisma (Default to PostgreSQL)
-- Redis (BullMQ)
+- Temporal
 - Resend (email notifications)
 
 ## Quick Start
@@ -119,7 +132,7 @@ Link: https://opencollective.com/postiz
 
 ## Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=gitroomhq/postiz-app&type=Date)](https://www.star-history.com/#gitroomhq/postiz-app&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=gitroomhq/postiz-app&type=date&legend=top-left)](https://www.star-history.com/#gitroomhq/postiz-app&type=date&legend=top-left)
 
 ## License
 

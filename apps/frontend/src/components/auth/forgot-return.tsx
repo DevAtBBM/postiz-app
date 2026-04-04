@@ -43,7 +43,7 @@ export function ForgotReturn({ token }: { token: string }) {
     if (!reset) {
       form.setError('password', {
         type: 'manual',
-        message: 'Your password reset link has expired. Please try again.',
+        message: t('password_reset_link_expired', 'Your password reset link has expired. Please try again.'),
       });
       return false;
     }
@@ -62,16 +62,18 @@ export function ForgotReturn({ token }: { token: string }) {
             <div className="space-y-4 text-textColor">
               <Input
                 label="New Password"
+                translationKey="label_new_password"
                 {...form.register('password')}
                 type="password"
-                placeholder="Password"
+                placeholder={t('label_password', 'Password')}
               />
               <PasswordStrength fieldName="password" />
               <Input
                 label="Repeat Password"
+                translationKey="label_repeat_password"
                 {...form.register('repeatPassword')}
                 type="password"
-                placeholder="Repeat Password"
+                placeholder={t('label_repeat_password', 'Repeat Password')}
               />
             </div>
             <div className="text-center mt-6">

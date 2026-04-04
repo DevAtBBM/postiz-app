@@ -3,21 +3,20 @@ import {
   Controller,
   Delete,
   Get,
+  HttpException,
   Param,
   Post,
   Put,
   Query,
   Res,
-  UseGuards,
 } from '@nestjs/common';
 import { PostsService } from '@gitroom/nestjs-libraries/database/prisma/posts/posts.service';
 import { GetOrgFromRequest } from '@gitroom/nestjs-libraries/user/org.from.request';
 import { Organization, User } from '@prisma/client';
 import { GetPostsDto } from '@gitroom/nestjs-libraries/dtos/posts/get.posts.dto';
-import { StarsService } from '@gitroom/nestjs-libraries/database/prisma/stars/stars.service';
+import { GetPostsListDto } from '@gitroom/nestjs-libraries/dtos/posts/get.posts.list.dto';
 import { CheckPolicies } from '@gitroom/backend/services/auth/permissions/permissions.ability';
 import { ApiTags } from '@nestjs/swagger';
-import { MessagesService } from '@gitroom/nestjs-libraries/database/prisma/marketplace/messages.service';
 import { GeneratorDto } from '@gitroom/nestjs-libraries/dtos/generator/generator.dto';
 import { CreateGeneratedPostsDto } from '@gitroom/nestjs-libraries/dtos/generator/create.generated.posts.dto';
 import { AgentGraphService } from '@gitroom/nestjs-libraries/agent/agent.graph.service';
@@ -25,20 +24,18 @@ import { Response } from 'express';
 import { GetUserFromRequest } from '@gitroom/nestjs-libraries/user/user.from.request';
 import { ShortLinkService } from '@gitroom/nestjs-libraries/short-linking/short.link.service';
 import { CreateTagDto } from '@gitroom/nestjs-libraries/dtos/posts/create.tag.dto';
-import { AuthorizationActions, Sections } from '@gitroom/backend/services/auth/permissions/permission.exception.class';
-import { QuotaGuard } from '@gitroom/nestjs-libraries/database/prisma/subscriptions/quota.guard';
-import { SubscriptionService } from '@gitroom/nestjs-libraries/database/prisma/subscriptions/subscription.service';
+import {
+  AuthorizationActions,
+  Sections,
+} from '@gitroom/backend/services/auth/permissions/permission.exception.class';
 
 @ApiTags('Posts')
 @Controller('/posts')
 export class PostsController {
   constructor(
     private _postsService: PostsService,
-    private _starsService: StarsService,
-    private _messagesService: MessagesService,
     private _agentGraphService: AgentGraphService,
-    private _shortLinkService: ShortLinkService,
-    private _subscriptionService: SubscriptionService
+    private _shortLinkService: ShortLinkService
   ) {}
 
   @Get('/:id/statistics')
@@ -49,17 +46,26 @@ export class PostsController {
     return this._postsService.getStatistics(org.id, id);
   }
 
-  @Post('/should-shortlink')
-  async shouldShortlink(@Body() body: { messages: string[] }) {
-    return { ask: this._shortLinkService.askShortLinkedin(body.messages) };
-  }
-
-  @Get('/marketplace/:id')
-  async getMarketplacePosts(
+  @Get('/:id/missing')
+  async getMissingContent(
     @GetOrgFromRequest() org: Organization,
     @Param('id') id: string
   ) {
-    return this._messagesService.getMarketplaceAvailableOffers(org.id, id);
+    return this._postsService.getMissingContent(org.id, id);
+  }
+
+  @Put('/:id/release-id')
+  async updateReleaseId(
+    @GetOrgFromRequest() org: Organization,
+    @Param('id') id: string,
+    @Body('releaseId') releaseId: string
+  ) {
+    return this._postsService.updateReleaseId(org.id, id, releaseId);
+  }
+
+  @Post('/should-shortlink')
+  async shouldShortlink(@Body() body: { messages: string[] }) {
+    return { ask: this._shortLinkService.askShortLinkedin(body.messages) };
   }
 
   @Post('/:id/comments')
@@ -94,16 +100,20 @@ export class PostsController {
     return this._postsService.editTag(id, org.id, body);
   }
 
+  @Delete('/tags/:id')
+  async deleteTag(
+    @GetOrgFromRequest() org: Organization,
+    @Param('id') id: string
+  ) {
+    return this._postsService.deleteTag(id, org.id);
+  }
+
   @Get('/')
   async getPosts(
     @GetOrgFromRequest() org: Organization,
     @Query() query: GetPostsDto
   ) {
-    const posts = await this._postsService.getPosts(org.id, query);
-
-    return {
-      posts,
-    };
+    return this._postsService.getPostsMinified(org.id, query);
   }
 
   @Get('/find-slot')
@@ -119,9 +129,12 @@ export class PostsController {
     return { date: await this._postsService.findFreeDateTime(org.id, id) };
   }
 
-  @Get('/predict-trending')
-  predictTrending() {
-    return this._starsService.predictTrending();
+  @Get('/list')
+  async getPostsList(
+    @GetOrgFromRequest() org: Organization,
+    @Query() query: GetPostsListDto
+  ) {
+    return this._postsService.getPostsList(org.id, query);
   }
 
   @Get('/old')
@@ -132,24 +145,37 @@ export class PostsController {
     return this._postsService.getOldPosts(org.id, date);
   }
 
+  @Get('/group/:group/debug-export')
+  async getPostGroupDebugExport(
+    @GetOrgFromRequest() org: Organization,
+    @GetUserFromRequest() user: User,
+    @Param('group') group: string
+  ) {
+    if (!user.isSuperAdmin) {
+      throw new HttpException('Forbidden', 403);
+    }
+    return this._postsService.getPostGroupDebugExport(org.id, group);
+  }
+
+  @Get('/group/:group')
+  getPostsByGroup(@GetOrgFromRequest() org: Organization, @Param('group') group: string) {
+    return this._postsService.getPostsByGroup(org.id, group);
+  }
+
   @Get('/:id')
   getPost(@GetOrgFromRequest() org: Organization, @Param('id') id: string) {
     return this._postsService.getPost(org.id, id);
   }
 
   @Post('/')
-  @UseGuards(QuotaGuard)
   @CheckPolicies([AuthorizationActions.Create, Sections.POSTS_PER_MONTH])
   async createPost(
     @GetOrgFromRequest() org: Organization,
     @Body() rawBody: any
   ) {
     console.log(JSON.stringify(rawBody, null, 2));
-
-    return this._subscriptionService.useFeature(org, 'posts', async () => {
-      const body = await this._postsService.mapTypeToPost(rawBody, org.id);
-      return this._postsService.createPost(org.id, body);
-    });
+    const body = await this._postsService.mapTypeToPost(rawBody, org.id);
+    return this._postsService.createPost(org.id, body);
   }
 
   @Post('/generator/draft')
@@ -188,9 +214,10 @@ export class PostsController {
   changeDate(
     @GetOrgFromRequest() org: Organization,
     @Param('id') id: string,
-    @Body('date') date: string
+    @Body('date') date: string,
+    @Body('action') action: 'schedule' | 'update' = 'schedule'
   ) {
-    return this._postsService.changeDate(org.id, id, date);
+    return this._postsService.changeDate(org.id, id, date, action);
   }
 
   @Post('/separate-posts')
