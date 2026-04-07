@@ -256,7 +256,7 @@ export class BillingController {
       body.period as 'MONTHLY' | 'YEARLY',
       null,
       undefined,
-      { id: body.organizationId }
+      body.organizationId
     );
 
     return {

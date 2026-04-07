@@ -1,5 +1,4 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { PayPalBillingService } from './paypal-billing.service';
 
 interface PayPalCreateSubscriptionResponse {
@@ -28,13 +27,11 @@ export class PayPalService {
   private readonly paypalBaseUrl: string;
 
   constructor(
-    private readonly configService: ConfigService,
     private readonly paypalBillingService: PayPalBillingService,
   ) {
-    // Get PayPal credentials from environment variables
-    this.paypalClientId = this.configService.get<string>('PAYPAL_CLIENT_ID');
-    this.paypalClientSecret = this.configService.get<string>('PAYPAL_CLIENT_SECRET');
-    const paypalEnvironment = this.configService.get<string>('PAYPAL_ENVIRONMENT', 'sandbox');
+    this.paypalClientId = process.env.PAYPAL_CLIENT_ID;
+    this.paypalClientSecret = process.env.PAYPAL_CLIENT_SECRET;
+    const paypalEnvironment = process.env.PAYPAL_ENVIRONMENT || 'sandbox';
 
     if (!this.paypalClientId || !this.paypalClientSecret) {
       this.logger.error('PayPal credentials not configured');

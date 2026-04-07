@@ -43,9 +43,11 @@ model Organization {
   webhooks            Webhooks[]
   oauthApp            OAuthApp[]
   oauthAuthorizations OAuthAuthorization[]
-  paypalCustomer     PayPalCustomer?      // PayPal customer data
+  paypalCustomer      PayPalCustomer?         // PayPal customer data
   paypalBillingMessages PayPalBillingMessage[]
   paypalBillingHistory PayPalBillingHistory[]
+  PaymentTransaction  PaymentTransaction[]
+  UsageRecord         UsageRecord[]
 
   @@index([apiKey])
   @@index([streakSince])
@@ -297,8 +299,149 @@ model Subscription {
   deletedAt        DateTime?
   organization     Organization     @relation(fields: [organizationId], references: [id])
 
+  // Extended billing fields
+  currentPeriodStart  DateTime?
+  currentPeriodEnd    DateTime?
+  trialEnd            DateTime?
+  paymentStatus       PaymentStatus @default(ACTIVE)
+  renewsAutomatically Boolean       @default(true)
+  paymentMethod       String?
+  lastPaymentAttempt  DateTime?
+  postsPerMonth       Int?
+  aiImagesPerMonth    Int?
+  aiVideosPerMonth    Int?
+  maxChannels         Int?
+  maxTeamMembers      Int?
+
+  paymentTransactions PaymentTransaction[]
+  usageRecords        UsageRecord[]
+  subscriptionHistory SubscriptionHistory[]
+
   @@index([organizationId])
   @@index([deletedAt])
+  @@index([subscriptionTier])
+  @@index([paymentStatus])
+}
+
+model SubscriptionPlan {
+  id          String           @id @default(uuid())
+  name        String
+  displayName String
+  description String
+  tier        SubscriptionTier @unique
+
+  monthlyPrice Int
+  yearlyPrice  Int?
+  currency     String @default("USD")
+  trialDays    Int    @default(0)
+
+  maxChannels         Int
+  maxPostsPerMonth    Int
+  maxAiImagesPerMonth Int
+  maxAiVideosPerMonth Int
+  maxTeamMembers      Int
+  maxWebhooks         Int
+
+  hasAi                 Boolean @default(false)
+  hasAutoPost           Boolean @default(false)
+  hasPublicApi          Boolean @default(false)
+  hasImportFromChannels Boolean @default(false)
+  hasCommunityFeatures  Boolean @default(false)
+  hasFeaturedByGitroom  Boolean @default(false)
+
+  isFree    Boolean @default(false)
+  isPopular Boolean @default(false)
+  isHidden  Boolean @default(false)
+  sortOrder Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tier])
+  @@index([isFree])
+  @@index([sortOrder])
+}
+
+model PaymentTransaction {
+  id             String        @id @default(uuid())
+  organizationId String
+  organization   Organization  @relation(fields: [organizationId], references: [id])
+  subscriptionId String?
+  subscription   Subscription? @relation(fields: [subscriptionId], references: [id])
+
+  provider              PaymentProvider
+  providerTransactionId String?         @unique
+  paymentMethod         String?
+
+  amount      Int
+  currency    String                   @default("USD")
+  status      PaymentTransactionStatus
+  type        PaymentType
+
+  description   String?
+  metadata      Json?
+  failureReason String?
+
+  processedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([organizationId])
+  @@index([subscriptionId])
+  @@index([providerTransactionId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model UsageRecord {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  subscriptionId String
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id])
+
+  usageType   UsageType
+  amount      Int
+  periodStart DateTime
+  periodEnd   DateTime
+
+  resourceId   String?
+  resourceType String?
+  metadata     Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([organizationId, usageType, periodStart, resourceId])
+  @@index([organizationId])
+  @@index([subscriptionId])
+  @@index([usageType])
+  @@index([periodStart, periodEnd])
+}
+
+model SubscriptionHistory {
+  id             String       @id @default(uuid())
+  subscriptionId String
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id])
+
+  oldTier   SubscriptionTier?
+  newTier   SubscriptionTier
+  oldPeriod Period?
+  newPeriod Period?
+
+  oldPrice     Int?
+  newPrice     Int?
+  changeReason SubscriptionChangeReason?
+  metadata     Json?
+
+  initiatedBy  String?
+  initiatedVia String?
+
+  createdAt DateTime @default(now())
+
+  @@index([subscriptionId])
+  @@index([newTier])
+  @@index([createdAt])
 }
 
 model Customer {
@@ -909,10 +1052,57 @@ enum State {
 }
 
 enum SubscriptionTier {
+  FREE
   STANDARD
   PRO
   TEAM
   ULTIMATE
+}
+
+enum PaymentStatus {
+  ACTIVE
+  CANCELLED
+  PAST_DUE
+  UNPAID
+  TRIALING
+  INCOMPLETE
+}
+
+enum PaymentTransactionStatus {
+  PENDING
+  PROCESSING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+  REFUNDED
+  PARTIALLY_REFUNDED
+}
+
+enum PaymentType {
+  SUBSCRIPTION_PAYMENT
+  UPGRADE_PAYMENT
+  DOWNGRADE_CREDIT
+  REFUND
+  MANUAL_ADJUSTMENT
+}
+
+enum UsageType {
+  POSTS
+  AI_IMAGES
+  AI_VIDEOS
+  WEBHOOKS
+  API_CALLS
+  INTEGRATIONS
+}
+
+enum SubscriptionChangeReason {
+  USER_UPGRADE
+  USER_DOWNGRADE
+  PAYMENT_FAILED
+  ADMIN_CHANGE
+  AUTOMATIC_RENEWAL
+  PLAN_UPDATE
+  CANCELLATION
 }
 
 enum Period {
@@ -1062,4 +1252,5 @@ enum PaymentProvider {
   RAZORPAY
   PAYPAL
   STRIPE
+  MANUAL
 }

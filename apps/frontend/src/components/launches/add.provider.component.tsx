@@ -362,6 +362,8 @@ export const AddProviderComponent: FC<{
     isExternal: boolean;
     isWeb3: boolean;
     isChromeExtension?: boolean;
+    disabled?: boolean;
+    disabledMessage?: string;
     extensionCookies?: Array<{
       name: string;
       domain: string;

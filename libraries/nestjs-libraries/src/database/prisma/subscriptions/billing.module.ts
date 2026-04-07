@@ -1,5 +1,4 @@
 import { Module, Global } from '@nestjs/common';
-import { ConfigModule, ConfigService } from '@nestjs/config';
 import { QuotaGuard } from './quota.guard';
 import { UsageTrackingMiddleware } from './usage.middleware';
 import { SubscriptionService } from './subscription.service';
@@ -10,7 +9,6 @@ import { PaymentWebhooksController } from '../../../../services/payment-webhooks
 
 @Global()
 @Module({
-  imports: [ConfigModule],
   providers: [
     SubscriptionService,
     QuotaGuard,

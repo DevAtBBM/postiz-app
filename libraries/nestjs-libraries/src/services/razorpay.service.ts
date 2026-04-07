@@ -1,5 +1,4 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
 
 interface RazorpaySubscriptionResponse {
@@ -54,13 +53,10 @@ export class RazorpayService {
   // Store Razorpay plan IDs for caching
   private razorpayPlanIds: Map<string, string> = new Map();
 
-  constructor(
-    private readonly configService: ConfigService,
-  ) {
-    // Get Razorpay credentials from environment variables
-    this.razorpayKeyId = this.configService.get<string>('RAZORPAY_KEY_ID') || '';
-    this.razorpayKeySecret = this.configService.get<string>('RAZORPAY_KEY_SECRET') || '';
-    const razorpayEnvironment = this.configService.get<string>('RAZORPAY_ENVIRONMENT', 'test');
+  constructor() {
+    this.razorpayKeyId = process.env.RAZORPAY_KEY_ID || '';
+    this.razorpayKeySecret = process.env.RAZORPAY_KEY_SECRET || '';
+    const razorpayEnvironment = process.env.RAZORPAY_ENVIRONMENT || 'test';
 
     if (!this.razorpayKeyId || !this.razorpayKeySecret) {
       this.logger.warn('Razorpay credentials not configured — Razorpay payments will be unavailable. Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET to enable.');
@@ -71,7 +67,7 @@ export class RazorpayService {
     }
 
     this.disabled = false;
-    this.usdToInrRate = parseInt(this.configService.get<string>('RAZORPAY_USD_TO_INR_RATE', '83'), 10);
+    this.usdToInrRate = parseInt(process.env.RAZORPAY_USD_TO_INR_RATE || '83', 10);
     this.razorpayBaseUrl = 'https://api.razorpay.com/v1';
     this.logger.log(`RazorpayService initialized with ${razorpayEnvironment} environment, USD→INR rate: ${this.usdToInrRate}`);
   }
