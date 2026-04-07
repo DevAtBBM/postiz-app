@@ -40,7 +40,9 @@ import { OAuthRepository } from '@gitroom/nestjs-libraries/database/prisma/oauth
 import { OAuthService } from '@gitroom/nestjs-libraries/database/prisma/oauth/oauth.service';
 import { AnnouncementsRepository } from '@gitroom/nestjs-libraries/database/prisma/announcements/announcements.repository';
 import { AnnouncementsService } from '@gitroom/nestjs-libraries/database/prisma/announcements/announcements.service';
-
+import { RazorpayService } from '@gitroom/nestjs-libraries/services/razorpay.service';
+import { PayPalService } from '@gitroom/nestjs-libraries/services/paypal.service';
+import { PayPalBillingService } from '@gitroom/nestjs-libraries/services/paypal-billing.service';
 @Global()
 @Module({
   imports: [],
@@ -89,6 +91,9 @@ import { AnnouncementsService } from '@gitroom/nestjs-libraries/database/prisma/
     VideoManager,
     AnnouncementsRepository,
     AnnouncementsService,
+    RazorpayService,
+    PayPalService,
+    PayPalBillingService,
   ],
   get exports() {
     return this.providers;
