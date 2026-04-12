@@ -9,6 +9,10 @@ Runtime.install({ shutdownSignals: [] });
 
 process.env.TZ = 'UTC';
 
+// Increase max listeners to suppress AbortSignal warnings from fetch/Temporal
+const { EventEmitter } = require('events');
+EventEmitter.defaultMaxListeners = 20;
+
 import cookieParser from 'cookie-parser';
 import { Logger, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';

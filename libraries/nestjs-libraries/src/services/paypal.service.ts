@@ -34,8 +34,7 @@ export class PayPalService {
     const paypalEnvironment = process.env.PAYPAL_ENVIRONMENT || 'sandbox';
 
     if (!this.paypalClientId || !this.paypalClientSecret) {
-      this.logger.error('PayPal credentials not configured');
-      throw new Error('PayPal credentials not configured. Please set PAYPAL_CLIENT_ID and PAYPAL_CLIENT_SECRET environment variables.');
+      this.logger.warn('PayPal credentials not configured. PayPal payments will be unavailable.');
     }
 
     // Set PayPal API base URL based on environment

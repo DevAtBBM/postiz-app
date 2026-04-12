@@ -277,6 +277,10 @@ export class PaymentWebhooksController {
           await this.handleSubscriptionCompleted(payload);
           break;
 
+        case 'subscription.charged':
+          await this.handleSubscriptionCharged(payload);
+          break;
+
         default:
           this.logger.log(`Unhandled event type: ${payload.event}`);
       }
@@ -295,13 +299,19 @@ export class PaymentWebhooksController {
     this.logger.log(`Payment captured: ${payment.id}, Amount: ${payment.amount}`);
 
     try {
-      // Try to find organization from order notes first (for subscription payments)
-      let organizationId = payload.payload.order?.entity?.notes?.organization_id;
+      // Try to find organization from multiple sources
+      let organizationId: string | undefined =
+        payload.payload.order?.entity?.notes?.organization_id ||
+        payload.payload.subscription?.entity?.notes?.organization_id ||
+        (payment.notes as any)?.organization_id;
 
-      // If not found in order notes, try to find via subscription lookup
-      if (!organizationId && payment.notes?.subscription_id) {
-        const organization = await this.subscriptionService.getOrganizationByRazorpaySubscriptionId(payment.notes.subscription_id);
-        organizationId = organization?.id;
+      // Fall back to subscription ID lookup
+      if (!organizationId) {
+        const subId = payload.payload.subscription?.entity?.id || (payment.notes as any)?.subscription_id;
+        if (subId) {
+          const org = await this.subscriptionService.getOrganizationByRazorpaySubscriptionId(subId);
+          organizationId = org?.id;
+        }
       }
 
       if (!organizationId) {
@@ -409,14 +419,6 @@ export class PaymentWebhooksController {
         return;
       }
 
-      // Get existing subscription to preserve plan details
-      const existingSubscription = await this.subscriptionService.getSubscription(organization.id);
-
-      if (!existingSubscription) {
-        this.logger.warn(`No existing subscription found for organization ${organization.id} - subscription may not have been created properly`);
-        return;
-      }
-
       // Extract plan details from Razorpay subscription notes
       const planName = subscription.notes?.plan_name || 'STANDARD';
       const period = subscription.notes?.period || 'MONTHLY';
@@ -427,7 +429,20 @@ export class PaymentWebhooksController {
         return;
       }
 
-      // Update the subscription with all paid plan details
+      // Use createOrUpdateSubscription so it handles both new users and upgrades
+      await this.subscriptionService.createOrUpdateSubscription(
+        false,
+        subscription.id,
+        organization.paymentId || subscription.id,
+        planPricing.channel || 1,
+        planName as any,
+        period as 'MONTHLY' | 'YEARLY',
+        null,
+        undefined,
+        organization.id
+      );
+
+      // Also patch the period dates which createOrUpdateSubscription doesn't set
       const subscriptionRepo = (this.subscriptionService as any)._subscriptionRepository;
       await subscriptionRepo._subscription.model.subscription.updateMany({
         where: {
@@ -435,33 +450,21 @@ export class PaymentWebhooksController {
           deletedAt: null,
         },
         data: {
-          identifier: subscription.id,
-          subscriptionTier: planName,
-          period: period,
-          maxChannels: planPricing.channel,
-          postsPerMonth: planPricing.posts_per_month,
-          aiImagesPerMonth: planPricing.image_generation_count || 0,
-          aiVideosPerMonth: planPricing.generate_videos || 0,
-          maxTeamMembers: planPricing.maxTeamMembers,
-          currentPeriodStart: new Date(subscription.current_start * 1000), // Convert from Unix timestamp
-          currentPeriodEnd: new Date(subscription.current_end * 1000), // Convert from Unix timestamp
+          currentPeriodStart: new Date(subscription.current_start * 1000),
+          currentPeriodEnd: new Date(subscription.current_end * 1000),
           cancelAt: null, // Clear any cancellation
         },
       });
 
       // Record subscription activation transaction
       try {
-        const planName = subscription.notes?.plan_name || 'STANDARD';
-        const period = subscription.notes?.period || 'MONTHLY';
-        const planPricing = pricing[planName as keyof typeof pricing] || pricing.STANDARD;
-
-        // Calculate amount based on plan and period
+        const activatedSub = await this.subscriptionService.getSubscription(organization.id);
         const usdAmount = period === 'YEARLY' ? planPricing.year_price : planPricing.month_price;
-        const amountInCents = Math.round(usdAmount * 100); // Already in cents for database
+        const amountInCents = Math.round(usdAmount * 100);
 
         await this.subscriptionService.createPaymentTransaction(
           organization.id,
-          existingSubscription.id, // Use database subscription ID for foreign key
+          activatedSub?.id || null,
           'RAZORPAY',
           `activation_${subscription.id}`,
           amountInCents,
@@ -484,6 +487,57 @@ export class PaymentWebhooksController {
     } catch (error) {
       this.logger.error(`Failed to process Razorpay subscription activation: ${subscription.id}`, error);
       throw error;
+    }
+  }
+
+  private async handleSubscriptionCharged(payload: RazorpayWebhookPayload) {
+    if (!payload.payload?.subscription) return;
+
+    const subscription = payload.payload.subscription.entity;
+    const payment = payload.payload.payment?.entity;
+
+    this.logger.log(`Subscription charged: ${subscription.id}`);
+
+    try {
+      const organizationId = subscription.notes?.organization_id;
+      if (!organizationId) {
+        this.logger.warn(`No organization_id in subscription notes for charged event: ${subscription.id}`);
+        return;
+      }
+
+      const existingSubscription = await this.subscriptionService.getSubscription(organizationId);
+      const planName = subscription.notes?.plan_name || existingSubscription?.subscriptionTier || 'STANDARD';
+      const planPricing = pricing[planName as keyof typeof pricing] || pricing.STANDARD;
+      const period = subscription.notes?.period || existingSubscription?.period || 'MONTHLY';
+      const usdAmount = period === 'YEARLY' ? planPricing.year_price : planPricing.month_price;
+
+      await this.subscriptionService.createPaymentTransaction(
+        organizationId,
+        existingSubscription?.id || null,
+        'RAZORPAY',
+        payment?.id || subscription.id,
+        payment?.amount || usdAmount * 100,
+        payment?.currency || 'INR',
+        'SUCCEEDED',
+        'SUBSCRIPTION_PAYMENT',
+        payment ? 'card' : undefined,
+        `Razorpay renewal - ${planName} (${period})`,
+        undefined,
+        { subscription_id: subscription.id, paid_count: subscription.paid_count }
+      );
+
+      // Update subscription period dates
+      await (this.subscriptionService as any)._subscriptionRepository._subscription.model.subscription.updateMany({
+        where: { organizationId, deletedAt: null },
+        data: {
+          currentPeriodStart: new Date(subscription.current_start * 1000),
+          currentPeriodEnd: new Date(subscription.current_end * 1000),
+        },
+      });
+
+      this.logger.log(`Recorded renewal transaction for subscription ${subscription.id}, org ${organizationId}`);
+    } catch (error) {
+      this.logger.error(`Failed to process subscription.charged for ${subscription.id}`, error);
     }
   }
 
@@ -791,11 +845,11 @@ export class PaymentWebhooksController {
         subscription.id, // identifier (using PayPal subscription ID)
         `paypal_${subscription.subscriber?.payer_id || subscription.id}`, // customerId
         pricing[tier].channel || 1, // totalChannels
-        tier, // billing tier
+        tier as any, // billing tier
         period, // period
         null, // cancelAt
         undefined, // code
-        { id: organization.id } // organization
+        organization.id // organization
       );
 
       // Get the actual subscription from database to ensure it exists for foreign key

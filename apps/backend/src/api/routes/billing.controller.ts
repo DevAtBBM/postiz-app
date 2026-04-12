@@ -1,7 +1,7 @@
 import { Body, Controller, Get, HttpException, Param, Post, Query, Req } from '@nestjs/common';
 import * as crypto from 'crypto';
 import { SubscriptionService } from '@gitroom/nestjs-libraries/database/prisma/subscriptions/subscription.service';
-import { StripeService } from '@gitroom/nestjs-libraries/services/stripe.service';
+import { PayPalService } from '@gitroom/nestjs-libraries/services/paypal.service';
 import { RazorpayService } from '@gitroom/nestjs-libraries/services/razorpay.service';
 import { GetOrgFromRequest } from '@gitroom/nestjs-libraries/user/org.from.request';
 import { Organization, User } from '@prisma/client';
@@ -11,14 +11,13 @@ import { GetUserFromRequest } from '@gitroom/nestjs-libraries/user/user.from.req
 import { NotificationService } from '@gitroom/nestjs-libraries/database/prisma/notifications/notification.service';
 import { Request } from 'express';
 import { Nowpayments } from '@gitroom/nestjs-libraries/crypto/nowpayments';
-import { AuthService } from '@gitroom/helpers/auth/auth.service';
 
 @ApiTags('Billing')
 @Controller('/billing')
 export class BillingController {
   constructor(
     private _subscriptionService: SubscriptionService,
-    private _stripeService: StripeService,
+    private _paypalService: PayPalService,
     private _razorpayService: RazorpayService,
     private _notificationService: NotificationService,
     private _nowpayments: Nowpayments
@@ -30,69 +29,47 @@ export class BillingController {
     @Param('id') body: string
   ) {
     return {
-      status: await this._stripeService.checkSubscription(org.id, body),
+      status: await this._subscriptionService.checkSubscription(org.id, body),
     };
   }
 
   @Get('/check-discount')
-  async checkDiscount(@GetOrgFromRequest() org: Organization) {
-    return {
-      offerCoupon: !(await this._stripeService.checkDiscount(org.paymentId))
-        ? false
-        : AuthService.signJWT({ discount: true }),
-    };
-  }
-
-  @Post('/apply-discount')
-  async applyDiscount(@GetOrgFromRequest() org: Organization) {
-    await this._stripeService.applyDiscount(org.paymentId);
+  async checkDiscount() {
+    return { offerCoupon: false };
   }
 
   @Post('/finish-trial')
   async finishTrial(@GetOrgFromRequest() org: Organization) {
-    try {
-      await this._stripeService.finishTrial(org.paymentId);
-    } catch (err) {}
-    return {
-      finish: true,
-    };
+    return { finish: true };
   }
 
   @Get('/is-trial-finished')
   async isTrialFinished(@GetOrgFromRequest() org: Organization) {
-    return {
-      finished: !org.isTrailing,
-    };
-  }
-
-  @Post('/embedded')
-  embedded(
-    @GetOrgFromRequest() org: Organization,
-    @GetUserFromRequest() user: User,
-    @Body() body: BillingSubscribeDto,
-    @Req() req: Request
-  ) {
-    const uniqueId = req?.cookies?.track;
-    return this._stripeService.embedded(
-      uniqueId,
-      org.id,
-      user.id,
-      body,
-      org.allowTrial
-    );
+    return { finished: !org.isTrailing };
   }
 
   @Post('/subscribe')
-  subscribe(
+  async subscribe(
     @GetOrgFromRequest() org: Organization,
     @GetUserFromRequest() user: User,
-    @Body() body: BillingSubscribeDto & { provider?: 'stripe' | 'razorpay' },
+    @Body() body: BillingSubscribeDto & { provider?: 'paypal' | 'razorpay' },
     @Req() req: Request
-  ) {
-    const uniqueId = req?.cookies?.track;
+  ): Promise<any> {
+    const uniqueId = req?.cookies?.track || `${org.id}_${Date.now()}`;
+    const provider = body.provider || 'paypal';
 
-    if (body.provider === 'razorpay') {
-      return this._razorpayService.subscribe(
+    let subscriptionResult: any;
+
+    if (provider === 'razorpay') {
+      subscriptionResult = await this._razorpayService.subscribe(
+        uniqueId,
+        org.id,
+        user.id,
+        body,
+        org.allowTrial
+      );
+    } else {
+      subscriptionResult = await this._paypalService.subscribe(
         uniqueId,
         org.id,
         user.id,
@@ -101,23 +78,31 @@ export class BillingController {
       );
     }
 
-    return this._stripeService.subscribe(
-      uniqueId,
-      org.id,
-      user.id,
-      body,
-      org.allowTrial
-    );
+    // Only store the subscription ID on the org so the webhook can find it.
+    // Do NOT update the subscription tier here — tier is updated only after payment is confirmed
+    // via the subscription.activated / BILLING.SUBSCRIPTION.ACTIVATED webhook.
+    try {
+      await this._subscriptionService.updateCustomerId(org.id, subscriptionResult.id);
+    } catch (err) {
+      console.error(`Failed to store ${provider} subscription ID on org ${org.id}:`, err);
+    }
+
+    // Extract PayPal approval URL
+    const approvalLink = subscriptionResult.links?.find((l: any) => l.rel === 'approve');
+    const url = approvalLink ? approvalLink.href : null;
+
+    return {
+      url,
+      subscriptionId: subscriptionResult.id,
+      provider,
+      ...subscriptionResult,
+    };
   }
 
   @Get('/portal')
   async modifyPayment(@GetOrgFromRequest() org: Organization) {
-    const customer = await this._stripeService.getCustomerByOrganizationId(
-      org.id
-    );
-    const { url } = await this._stripeService.createBillingPortalLink(customer);
     return {
-      portal: url,
+      portal: `https://www.paypal.com/myaccount/billing/subscriptions`,
     };
   }
 
@@ -132,22 +117,35 @@ export class BillingController {
     @GetUserFromRequest() user: User,
     @Body() body: { feedback: string }
   ) {
+    const currentSubscription =
+      await this._subscriptionService.getSubscriptionByOrganizationId(org.id);
+
     await this._notificationService.sendEmail(
       process.env.EMAIL_FROM_ADDRESS,
       'Subscription Cancelled',
       `Organization ${org.name} has cancelled their subscription because: ${body.feedback}`,
-      user.email
+      user.email?.includes('@') ? user.email : undefined
     );
 
-    return this._stripeService.setToCancel(org.id);
+    if (currentSubscription?.cancelAt) {
+      // Reactivate: clear cancelAt
+      await this._subscriptionService.updateSubscriptionCancelAt(org.id, null);
+      return { cancel_at: null };
+    }
+
+    // Schedule cancellation at end of period (30 days from now)
+    const cancelAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    await this._subscriptionService.updateSubscriptionCancelAt(org.id, cancelAt);
+    return { cancel_at: cancelAt };
   }
 
   @Post('/prorate')
-  prorate(
+  async prorate(
     @GetOrgFromRequest() org: Organization,
     @Body() body: BillingSubscribeDto
   ) {
-    return this._stripeService.prorate(org.id, body);
+    // PayPal doesn't have native proration — return 0 so UI can proceed
+    return { price: 0 };
   }
 
   @Post('/lifetime')
@@ -155,44 +153,7 @@ export class BillingController {
     @GetOrgFromRequest() org: Organization,
     @Body() body: { code: string }
   ) {
-    return this._stripeService.lifetimeDeal(org.id, body.code);
-  }
-
-  @Get('/charges')
-  async getCharges(
-    @GetUserFromRequest() user: User,
-    @GetOrgFromRequest() org: Organization
-  ) {
-    if (!user.isSuperAdmin) {
-      throw new HttpException('Unauthorized', 400);
-    }
-
-    return this._stripeService.getCharges(org.id);
-  }
-
-  @Post('/refund-charges')
-  async refundCharges(
-    @GetUserFromRequest() user: User,
-    @GetOrgFromRequest() org: Organization,
-    @Body() body: { chargeIds: string[] }
-  ) {
-    if (!user.isSuperAdmin) {
-      throw new HttpException('Unauthorized', 400);
-    }
-
-    return this._stripeService.refundCharges(org.id, body.chargeIds);
-  }
-
-  @Post('/cancel-subscription')
-  async cancelSubscription(
-    @GetUserFromRequest() user: User,
-    @GetOrgFromRequest() org: Organization
-  ) {
-    if (!user.isSuperAdmin) {
-      throw new HttpException('Unauthorized', 400);
-    }
-
-    return this._stripeService.cancelSubscription(org.id);
+    return { success: false, message: 'Lifetime deals are not currently available' };
   }
 
   @Post('/add-subscription')
@@ -212,9 +173,57 @@ export class BillingController {
     );
   }
 
+  @Get('/transactions')
+  async getTransactions(@GetOrgFromRequest() org: Organization) {
+    return this._subscriptionService.getTransactionHistory(org.id);
+  }
+
+  @Get('/failed-payments')
+  async getFailedPayments(@GetOrgFromRequest() org: Organization) {
+    return this._subscriptionService.getFailedPayments(org.id);
+  }
+
   @Get('/crypto')
   async crypto(@GetOrgFromRequest() org: Organization) {
     return this._nowpayments.createPaymentPage(org.id);
+  }
+
+  @Post('/report-billing-issue')
+  async reportBillingIssue(
+    @GetOrgFromRequest() org: Organization,
+    @GetUserFromRequest() user: User,
+    @Body() body: {
+      issueType: 'PAYMENT_FAILED' | 'SERVICE_PROBLEM' | 'ACCOUNT_QUESTION' | 'OTHER';
+      description: string;
+      severity: 'LOW' | 'MEDIUM' | 'HIGH';
+    }
+  ) {
+    try {
+      const subject = `Billing Issue Report - ${org.name}`;
+      const emailBody = `Billing Issue Report\n\nOrganization: ${org.name}\nOrganization ID: ${org.id}\nUser: ${user.email || user.id} (${user.email || 'wallet login'})\n\nIssue Type: ${body.issueType}\nSeverity: ${body.severity}\nDescription: ${body.description}\n\nReported at: ${new Date().toISOString()}`;
+
+      await this._notificationService.sendEmail(
+        process.env.EMAIL_FROM_ADDRESS,
+        subject,
+        emailBody,
+        process.env.SUPPORT_EMAIL_ADDRESS || process.env.EMAIL_FROM_ADDRESS
+      );
+
+      const userEmail = user.email?.includes('@') ? user.email : null;
+      if (userEmail) {
+        await this._notificationService.sendEmail(
+          process.env.EMAIL_FROM_ADDRESS,
+          'Billing Issue Received - Ref #' + Math.random().toString(36).substr(2, 6).toUpperCase(),
+          `Dear ${userEmail},\n\nThank you for reporting a billing issue. Our support team will respond within 24 hours.\n\nIssue Type: ${body.issueType}\nSeverity: ${body.severity}`,
+          userEmail
+        );
+      }
+
+      return { success: true, message: 'Billing issue reported successfully. You will receive a response within 24 hours.' };
+    } catch (error) {
+      console.error('Error reporting billing issue:', error);
+      throw new Error('Failed to report billing issue');
+    }
   }
 
   // ── Razorpay-specific endpoints ──────────────────────────────────────────
@@ -231,7 +240,6 @@ export class BillingController {
       amount: number;
     }
   ) {
-    // Verify payment signature
     const sign = body.razorpay_order_id + '|' + body.razorpay_payment_id;
     const expectedSign = crypto
       .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET!)
@@ -247,17 +255,34 @@ export class BillingController {
       body.planName === 'PRO' ? 20 :
       body.planName === 'ULTIMATE' ? 100 : 1;
 
-    const subscriptionResult = await this._subscriptionService.createOrUpdateSubscription(
+    const subscriptionResult = await this._subscriptionService.createPayPalSubscription(
       false,
       body.razorpay_payment_id,
       body.razorpay_payment_id,
-      channelCount,
       body.planName as any,
       body.period as 'MONTHLY' | 'YEARLY',
       null,
-      undefined,
-      body.organizationId
+      { id: body.organizationId }
     );
+
+    try {
+      await this._subscriptionService.createPaymentTransaction(
+        body.organizationId,
+        null,
+        'RAZORPAY',
+        body.razorpay_payment_id,
+        body.amount * 100,
+        'INR',
+        'SUCCEEDED',
+        'SUBSCRIPTION_PAYMENT',
+        undefined,
+        `Razorpay subscription payment - ${body.planName}`,
+        undefined,
+        { razorpay_order_id: body.razorpay_order_id, razorpay_signature: body.razorpay_signature }
+      );
+    } catch (err) {
+      console.error('Failed to save Razorpay transaction record:', err);
+    }
 
     return {
       success: true,

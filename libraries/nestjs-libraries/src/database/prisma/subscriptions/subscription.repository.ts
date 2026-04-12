@@ -4,7 +4,7 @@ import {
   PrismaTransaction,
 } from '@gitroom/nestjs-libraries/database/prisma/prisma.service';
 import dayjs from 'dayjs';
-import { Organization } from '@prisma/client';
+import { Organization, PaymentProvider, PaymentTransactionStatus, PaymentType } from '@prisma/client';
 
 @Injectable()
 export class SubscriptionRepository {
@@ -13,7 +13,8 @@ export class SubscriptionRepository {
     private readonly _organization: PrismaRepository<'organization'>,
     private readonly _user: PrismaRepository<'user'>,
     private readonly _credits: PrismaRepository<'credits'>,
-    private _usedCodes: PrismaRepository<'usedCodes'>
+    private _usedCodes: PrismaRepository<'usedCodes'>,
+    private readonly _paymentTransaction: PrismaRepository<'paymentTransaction'>
   ) {}
 
   getUserAccount(userId: string) {
@@ -156,7 +157,8 @@ export class SubscriptionRepository {
     await this._subscription.model.subscription.upsert({
       where: {
         organizationId: findOrg.id,
-        ...(!code
+        // Only filter by paymentId when org was looked up by customerId (not passed directly)
+        ...(!code && !org
           ? {
               organization: {
                 paymentId: customerId,
@@ -203,6 +205,13 @@ export class SubscriptionRepository {
         },
       });
     }
+  }
+
+  async updateSubscriptionCancelAt(orgId: string, cancelAt: Date | null) {
+    return this._subscription.model.subscription.updateMany({
+      where: { organizationId: orgId, deletedAt: null },
+      data: { cancelAt },
+    });
   }
 
   getSubscriptionByIdentifier(identifier: string) {
@@ -303,6 +312,64 @@ export class SubscriptionRepository {
       },
       include: {
         subscription: true,
+      },
+    });
+  }
+
+  async createPaymentTransaction(
+    organizationId: string,
+    subscriptionId: string | null,
+    provider: PaymentProvider,
+    providerTransactionId: string | null,
+    amount: number,
+    currency: string,
+    status: PaymentTransactionStatus,
+    type: PaymentType,
+    paymentMethod?: string,
+    description?: string,
+    failureReason?: string,
+    metadata?: any
+  ) {
+    return this._paymentTransaction.model.paymentTransaction.create({
+      data: {
+        organizationId,
+        subscriptionId,
+        provider,
+        providerTransactionId,
+        paymentMethod,
+        amount,
+        currency,
+        status,
+        type,
+        description,
+        failureReason,
+        ...(metadata && { metadata }),
+      },
+    });
+  }
+
+  async getTransactionHistory(orgId: string) {
+    return this._paymentTransaction.model.paymentTransaction.findMany({
+      where: { organizationId: orgId },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+      include: {
+        subscription: {
+          select: { id: true, subscriptionTier: true, period: true },
+        },
+      },
+    });
+  }
+
+  async getFailedPayments(orgId: string) {
+    return this._paymentTransaction.model.paymentTransaction.findMany({
+      where: { organizationId: orgId, status: 'FAILED' },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+      include: {
+        subscription: {
+          select: { id: true, subscriptionTier: true },
+        },
       },
     });
   }

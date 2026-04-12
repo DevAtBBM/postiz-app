@@ -180,6 +180,10 @@ export class StripeService {
   }
 
   async getPackages() {
+    if (!process.env.STRIPE_SECRET_KEY) {
+      return {};
+    }
+
     const products = await stripe.prices.list({
       active: true,
       expand: ['data.tiers', 'data.product'],
@@ -556,7 +560,7 @@ export class StripeService {
   }
 
   async checkDiscount(customer: string) {
-    if (!process.env.STRIPE_DISCOUNT_ID) {
+    if (!process.env.STRIPE_SECRET_KEY || !process.env.STRIPE_DISCOUNT_ID) {
       return false;
     }
 

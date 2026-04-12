@@ -16,6 +16,8 @@ import { Tool } from '@gitroom/nestjs-libraries/integrations/tool.decorator';
 export class WhopProvider extends SocialAbstract implements SocialProvider {
   identifier = 'whop';
   name = 'Whop';
+  disabled = process.env.FRONTEND_URL !== 'https://stageapp.postnify.com';
+  disabledMessage = 'Whop integration is coming soon.';
   isBetweenSteps = false;
   scopes = ['openid', 'profile', 'email', 'forum:post:create', 'forum:read', 'company:basic:read'];
   refreshCron = false;

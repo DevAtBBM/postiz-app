@@ -16,6 +16,8 @@ import { AuthService } from '@gitroom/helpers/auth/auth.service';
 export class SkoolProvider extends SocialAbstract implements SocialProvider {
   identifier = 'skool';
   name = 'Skool';
+  disabled = process.env.FRONTEND_URL !== 'https://stageapp.postnify.com';
+  disabledMessage = 'Skool integration is coming soon.';
   isBetweenSteps = false;
   isChromeExtension = true;
   scopes = [] as string[];

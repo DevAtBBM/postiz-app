@@ -53,6 +53,8 @@ export class YoutubeProvider extends SocialAbstract implements SocialProvider {
   override maxConcurrentJob = 200; // YouTube has strict upload quotas
   identifier = 'youtube';
   name = 'YouTube';
+  disabled = process.env.FRONTEND_URL !== 'https://stageapp.postnify.com';
+  disabledMessage = 'YouTube integration is coming soon.';
   isBetweenSteps = true;
   dto = YoutubeSettingsDto;
   scopes = [

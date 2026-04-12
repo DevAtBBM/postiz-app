@@ -14,6 +14,8 @@ import { Tool } from '@gitroom/nestjs-libraries/integrations/tool.decorator';
 export class MeweProvider extends SocialAbstract implements SocialProvider {
   identifier = 'mewe';
   name = 'MeWe';
+  disabled = process.env.FRONTEND_URL !== 'https://stageapp.postnify.com';
+  disabledMessage = 'MeWe integration is coming soon.';
   isBetweenSteps = false;
   scopes = [] as string[];
   editor = 'normal' as const;

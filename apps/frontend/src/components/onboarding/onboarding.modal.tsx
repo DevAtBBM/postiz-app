@@ -1,10 +1,9 @@
 'use client';
 
-import React, { FC, useCallback, useMemo, useState } from 'react';
+import React, { FC, useCallback, useMemo } from 'react';
 import { useFetch } from '@gitroom/helpers/utils/custom.fetch';
 import useSWR from 'swr';
 import { orderBy } from 'lodash';
-import clsx from 'clsx';
 import SafeImage from '@gitroom/react/helpers/safe.image';
 import { AddProviderComponent } from '@gitroom/frontend/components/launches/add.provider.component';
 import { useT } from '@gitroom/react/translation/get.transation.service.client';
@@ -15,7 +14,6 @@ interface OnboardingModalProps {
 }
 
 export const OnboardingModal: FC<OnboardingModalProps> = ({ onClose }) => {
-  const [step, setStep] = useState(1);
   const modals = useModals();
   const t = useT();
 
@@ -47,61 +45,7 @@ export const OnboardingModal: FC<OnboardingModalProps> = ({ onClose }) => {
         </button>
         <div className="flex-1 flex p-[40px]">
           <div className="flex flex-col gap-[24px] flex-1">
-            {/* Step indicators */}
-            <div className="flex items-center justify-center gap-[16px]">
-              <div className="flex items-center gap-[8px]">
-                <div
-                  className={clsx(
-                    'w-[32px] h-[32px] rounded-full flex items-center justify-center text-[14px] font-semibold transition-colors',
-                    step === 1
-                      ? 'bg-boxFocused text-textItemFocused'
-                      : 'bg-newTableHeader'
-                  )}
-                >
-                  1
-                </div>
-                <span
-                  className={clsx(
-                    'text-[14px]',
-                    step === 1 ? 'font-medium' : 'text-textColor'
-                  )}
-                >
-                  {t('connect_channels', 'Connect Channels')}
-                </span>
-              </div>
-              <div className="w-[40px] h-[2px] bg-boxFocused" />
-              <div className="flex items-center gap-[8px]">
-                <div
-                  className={clsx(
-                    'w-[32px] h-[32px] rounded-full flex items-center justify-center text-[14px] font-semibold transition-colors',
-                    step === 2
-                      ? 'bg-boxFocused text-textItemFocused'
-                      : 'bg-newTableHeader'
-                  )}
-                >
-                  2
-                </div>
-                <span
-                  className={clsx(
-                    'text-[14px]',
-                    step === 2 ? 'font-medium' : 'text-textColor'
-                  )}
-                >
-                  {t('watch_tutorial', 'Watch Tutorial')}
-                </span>
-              </div>
-            </div>
-
-            {/* Step content */}
-            {step === 1 && (
-              <OnboardingStep1
-                onNext={() => setStep(2)}
-                onSkip={() => setStep(2)}
-              />
-            )}
-            {step === 2 && (
-              <OnboardingStep2 onBack={() => setStep(1)} onFinish={onClose} />
-            )}
+            <OnboardingStep1 onNext={onClose} onSkip={onClose} />
           </div>
         </div>
       </div>
@@ -214,7 +158,7 @@ const OnboardingStep1: FC<{ onNext: () => void; onSkip: () => void }> = ({
       <div className="flex justify-end pt-[24px] mt-[8px]">
         <button
           onClick={onNext}
-          className="group flex items-center gap-[12px] bg-gradient-to-r from-[#622aff] to-[#8b5cf6] hover:from-[#7c3aff] hover:to-[#9d6eff] text-white font-semibold px-[32px] py-[14px] rounded-[12px] text-[16px] transition-all shadow-lg shadow-purple-500/25 hover:shadow-purple-500/40"
+          className="group flex items-center gap-[12px] bg-gradient-to-r from-[#26B9C0] to-[#1a9ea5] hover:from-[#1a9ea5] hover:to-[#26B9C0] text-white font-semibold px-[32px] py-[14px] rounded-[12px] text-[16px] transition-all shadow-lg shadow-[#26B9C0]/25 hover:shadow-[#26B9C0]/40"
         >
           {sortedIntegrations.length > 0
             ? t('continue', 'Continue')
@@ -250,12 +194,12 @@ const OnboardingStep2: FC<{ onBack: () => void; onFinish: () => void }> = ({
     <div className="flex flex-col gap-[24px] flex-1">
       <div className="flex gap-[4px] flex-col text-center">
         <div className="text-[24px] font-semibold">
-          {t('watch_tutorial_title', 'Learn How to Use Postiz')}
+          {t('watch_tutorial_title', 'Learn How to Use Postnify')}
         </div>
         <div className="text-[14px] text-customColor18">
           {t(
             'watch_tutorial_description',
-            'Watch this short video to learn how to get the most out of Postiz'
+            'Watch this short video to learn how to get the most out of Postnify'
           )}
         </div>
       </div>
@@ -266,7 +210,7 @@ const OnboardingStep2: FC<{ onBack: () => void; onFinish: () => void }> = ({
           <iframe
             className="h-full aspect-video"
             src="https://www.youtube.com/embed/BdsCVvEYgHU?si=vvhaZJ8I5oXXvVJS?autoplay=1"
-            title="Postiz Tutorial"
+            title="Postnify Tutorial"
             allow="autoplay"
             allowFullScreen
           />

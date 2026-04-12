@@ -38,6 +38,8 @@ export class GmbProvider extends SocialAbstract implements SocialProvider {
   override maxConcurrentJob = 3;
   identifier = 'gmb';
   name = 'Google My Business';
+  disabled = process.env.FRONTEND_URL !== 'https://stageapp.postnify.com';
+  disabledMessage = 'Google My Business integration is coming soon.';
   isBetweenSteps = true;
   scopes = [
     'https://www.googleapis.com/auth/userinfo.profile',

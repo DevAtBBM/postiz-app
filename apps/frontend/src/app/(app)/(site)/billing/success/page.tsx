@@ -24,16 +24,11 @@ const SuccessComponent: FC = () => {
 
   useEffect(() => {
     if (subscriptionId) {
-      // Track successful subscription
-      track(TrackEnum.Purchase, {
-        provider: provider,
-        subscriptionId: subscriptionId
-      });
-
-      // Refresh user data to get updated subscription status
+      track(TrackEnum.Purchase, { provider, subscriptionId });
+      // Invalidate all billing/user caches so billing page shows updated plan
       mutate('/user/self');
       mutate('/user/subscription');
-
+      mutate('/user/subscription/tiers');
       setLoading(false);
     }
   }, [subscriptionId, provider, mutate]);
@@ -90,7 +85,7 @@ const SuccessComponent: FC = () => {
           <h3 className="font-medium text-gray-900 mb-3">What happens next:</h3>
           <ul className="text-sm text-gray-600 space-y-2">
             <li>✅ Your subscription is now active</li>
-            <li>💳 You'll be billed automatically each month</li>
+            <li>💳 You'll be billed automatically each billing cycle</li>
             <li>📧 Billing receipts will be sent to your email</li>
             <li>🔧 You can manage your subscription anytime from your billing settings</li>
           </ul>

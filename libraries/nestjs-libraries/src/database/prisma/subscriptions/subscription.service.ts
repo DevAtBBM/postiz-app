@@ -262,6 +262,72 @@ export class SubscriptionService {
     );
   }
 
+  async createPayPalSubscription(
+    isTrailing: boolean,
+    identifier: string,
+    customerId: string,
+    billing: 'FREE' | 'STANDARD' | 'PRO' | 'TEAM' | 'ULTIMATE',
+    period: 'MONTHLY' | 'YEARLY',
+    cancelAt: number | null,
+    org: { id: string }
+  ) {
+    const planPricing = pricing[billing] || pricing['PRO'];
+    const totalChannels = planPricing.channel || 1;
+    return this._subscriptionRepository.createOrUpdateSubscription(
+      isTrailing,
+      identifier,
+      customerId,
+      totalChannels,
+      billing as any,
+      period,
+      cancelAt,
+      undefined,
+      org
+    );
+  }
+
+  async updateSubscriptionCancelAt(orgId: string, cancelAt: Date | null) {
+    return this._subscriptionRepository.updateSubscriptionCancelAt(orgId, cancelAt);
+  }
+
+  async createPaymentTransaction(
+    organizationId: string,
+    subscriptionId: string | null,
+    provider: 'RAZORPAY' | 'PAYPAL' | 'STRIPE' | 'MANUAL',
+    providerTransactionId: string | null,
+    amount: number,
+    currency: string,
+    status: 'PENDING' | 'PROCESSING' | 'SUCCEEDED' | 'FAILED' | 'CANCELLED' | 'REFUNDED' | 'PARTIALLY_REFUNDED',
+    type: 'SUBSCRIPTION_PAYMENT' | 'UPGRADE_PAYMENT' | 'DOWNGRADE_CREDIT' | 'REFUND' | 'MANUAL_ADJUSTMENT',
+    paymentMethod?: string,
+    description?: string,
+    failureReason?: string,
+    metadata?: any
+  ) {
+    return this._subscriptionRepository.createPaymentTransaction(
+      organizationId,
+      subscriptionId,
+      provider as any,
+      providerTransactionId,
+      amount,
+      currency,
+      status as any,
+      type as any,
+      paymentMethod,
+      description,
+      failureReason,
+      metadata
+    );
+  }
+
+  async getTransactionHistory(orgId: string) {
+    return this._subscriptionRepository.getTransactionHistory(orgId);
+  }
+
+  async getFailedPayments(orgId: string) {
+    return this._subscriptionRepository.getFailedPayments(orgId);
+  }
+
   async addSubscription(orgId: string, userId: string, subscription: any) {
     await this._subscriptionRepository.setCustomerId(orgId, userId);
     return this.createOrUpdateSubscription(
@@ -278,6 +344,10 @@ export class SubscriptionService {
   }
 
   getOrganizationByRazorpaySubscriptionId(subscriptionId: string) {
+    return this._subscriptionRepository.getOrganizationByRazorpaySubscriptionId(subscriptionId);
+  }
+
+  getOrganizationByPayPalSubscriptionId(subscriptionId: string) {
     return this._subscriptionRepository.getOrganizationByRazorpaySubscriptionId(subscriptionId);
   }
 }

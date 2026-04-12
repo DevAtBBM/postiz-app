@@ -41,6 +41,7 @@ import { StreakComponent } from '@gitroom/frontend/components/layout/streak.comp
 import { PreConditionComponent } from '@gitroom/frontend/components/layout/pre-condition.component';
 import { AttachToFeedbackIcon } from '@gitroom/frontend/components/new-layout/sentry.feedback.component';
 import { FirstBillingComponent } from '@gitroom/frontend/components/billing/first.billing.component';
+import { LoadingComponent } from '@gitroom/frontend/components/layout/loading';
 
 const jakartaSans = Plus_Jakarta_Sans({
   weight: ['600', '500', '700'],
@@ -76,7 +77,7 @@ export const LayoutComponent = ({ children }: { children: ReactNode }) => {
     setBillingSkipped(true);
   }, []);
 
-  if (!user) return null;
+  if (!user) return <LoadingComponent />;
 
   return (
     <ContextWrapper user={user}>
