@@ -121,7 +121,7 @@ services:
     container_name: temporal-postgresql
     image: postgres:16
     environment:
-      POSTGRES_PASSWORD: tPx7mK2vNqR5wL9bZ3cJ8eH4sY6fA1dQ
+      POSTGRES_PASSWORD: temporal
       POSTGRES_USER: temporal
     networks:
       - temporal-network
@@ -142,7 +142,7 @@ services:
       - DB=postgres12
       - DB_PORT=5432
       - POSTGRES_USER=temporal
-      - POSTGRES_PWD=tPx7mK2vNqR5wL9bZ3cJ8eH4sY6fA1dQ
+      - POSTGRES_PWD=temporal
       - POSTGRES_SEEDS=temporal-postgresql
       - DYNAMIC_CONFIG_FILE_PATH=config/dynamicconfig/development-sql.yaml
       - ENABLE_ES=true
