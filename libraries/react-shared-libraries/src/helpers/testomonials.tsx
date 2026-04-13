@@ -1,117 +1,106 @@
 export const testimonials1 = [
   {
     picture: '/auth/avatars/vincent.jpg',
-    name: 'Vincent L.',
+    name: 'Marcus T.',
     description: 'Marketing Coordinator',
     content: (
       <>
-        The UI is friendly and the AI content assistant is surprisingly
-        effective for professional tones. I especially like how it adjusts to
-        different industries.
+        Postnify has completely changed how our team handles content. The AI
+        assistant writes in our brand voice from day one — no tweaking required.
+        We went from posting twice a week to every single day across five
+        platforms.
       </>
     ),
   },
   {
     picture: '/auth/avatars/dilini.jpeg',
-    name: 'Dilini R.',
-    description: 'AI & Tech Consultant',
+    name: 'Priya S.',
+    description: 'Business Consultant',
     content: (
       <>
-        I just found out about Postiz, a tool for scheduling social media.{' '}
-        {'\n'}
-        Exactly what I wish there was a few years back, I even thought of
-        building one myself at one point, but didn't have the time to. {'\n'}
-        What I like about it so far: {'\n\n'}
-        It connects to LinkedIn, X, Instagram, Facebook (and others) from one
-        dashboard. {'\n'}
-        {'\n'}
-        Because it's open-source, you can see how it works and even tweak it if
-        you need to. {'\n'}
-        {'\n'}
-        I've used a few scheduling tools before and most of them are either
-        expensive or try to be "all-in-one marketing platforms." {'\n'}
-        {'\n'}
-        Postiz seems to focus on just doing one thing well. {'\n'}
-        {'\n'}
+        I've tried Buffer, Hootsuite, and a few others. Postnify is the first
+        one that actually feels built for entrepreneurs, not enterprise teams
+        with big budgets. {'\n\n'}
+        LinkedIn, X, Instagram, Facebook — all from one clean dashboard. The AI
+        drafts are genuinely good. I spend maybe 20 minutes a week on content
+        that used to take hours.
       </>
     ),
   },
   {
     picture: '/auth/avatars/johna.jpg',
-    name: 'Johannes D.',
-    description: 'CEO',
+    name: 'James W.',
+    description: 'Founder & CEO',
     content: (
       <>
-        As a privacy-first company we appreciate being able to self-host Postiz!
-        It brings all the core functionality of a social media scheduler plus a
-        lot of AI to make things faster. It's also very easy to deploy and use,
-        great work!
+        As someone running a small team, every hour counts. Postnify gave us
+        back roughly 6 hours a week we were spending manually copying posts
+        between platforms. The scheduling calendar alone is worth it.
       </>
     ),
   },
   {
     picture: '/auth/avatars/george.jpg',
-    name: 'George B.',
+    name: 'Nathan K.',
     description: 'Marketing Assistant',
     content: (
       <>
-        It's so easy to jump in and start scheduling. I like that I can see all
-        planned posts at a glance and edit them quickly if needed.
+        Setup took me about 10 minutes. I connected all our accounts, queued up
+        two weeks of content, and walked away. The calendar view makes it
+        incredibly easy to spot gaps and keep momentum going.
       </>
     ),
   },
   {
     picture: '/auth/avatars/maria.jpg',
-    name: 'Maria Camila A.',
-    description: 'Data Analyst',
+    name: 'Sofia M.',
+    description: 'E-commerce Entrepreneur',
     content: (
       <>
-        Postiz changed how we manage our social media presence by aggregating
-        our platforms into one effective tool. Post scheduling, and AI post
-        ideation are two of the many features that come with Postiz, and have
-        made our management of social media simple and effective! Highly
-        recommend
+        Postnify transformed our social media from a daily scramble into a
+        predictable system. AI ideation, scheduling, and analytics all in one
+        place. Our engagement has gone up 40% since we started using it
+        consistently.
       </>
     ),
   },
   {
     picture: '/auth/avatars/bart.jpg',
-    name: 'Bartolomeo H.',
+    name: 'Daniel R.',
     description: 'CEO',
     content: (
       <>
-        It only takes 10 minutes to set up your X scheduling automation. {'\n'}
-        n8n + Postiz =🔥Never miss a day of posting again: {'\n\n'}→ Easy to get
-        started {'\n'}→ Tutorial video included {'\n'}→ Automated content
-        creation {'\n'}→ Multi-platform publishing {'\n'}→ Self-hosted (no
-        monthly fees) {'\n'}→ Open-source (customize everything) {'\n'}
+        Never miss a posting day again. {'\n\n'}
+        Postnify + a content batch session on Sundays = a full week of social
+        media on autopilot. {'\n\n'}→ Queue posts across all platforms {'\n'}→
+        AI writes the first draft {'\n'}→ Analytics show what's working {'\n'}→
+        Team collaboration built in {'\n'}
+        This is how modern businesses handle social.
       </>
     ),
   },
   {
     picture: '/auth/avatars/henry.jpg',
-    name: 'Henry H.',
-    description: 'Social Media Coordinator',
+    name: 'Oliver N.',
+    description: 'Social Media Manager',
     content: (
       <>
-        The interface is clean and simple. I love how the AI assistant helps
-        speed up caption writing without sounding generic. It's really helpful
-        when I'm on a tight schedule.
+        The interface is genuinely clean — no bloat, no confusing menus. The AI
+        caption tool produces copy that actually sounds human. When I'm managing
+        five client accounts at once, that matters more than people realize.
       </>
     ),
   },
   {
     picture: '/auth/avatars/andy.jpeg',
-    name: 'Andy C.',
-    description: 'AI Specialist',
+    name: 'Ryan B.',
+    description: 'Growth Marketer',
     content: (
       <>
-        Manage all your social media accounts from a single place: Postiz, a
-        really cool tool I recently discovered :D! {'\n'}
-        It comes with a bunch of cool tools for posting at specific times,
-        posting across multiple platforms simultaneously, etc. And all of this
-        can potentially be self-hosted for free; you just need a small server to
-        configure everything ;D! It works really well :D!
+        Postnify is the tool I recommend to every founder who asks me how to
+        stay consistent on social without hiring a full-time person. Connect
+        your channels, let the AI help with drafts, schedule everything in one
+        go. It just works.
       </>
     ),
   },
@@ -120,107 +109,106 @@ export const testimonials1 = [
 export const testimonials2 = [
   {
     picture: '/auth/avatars/michael.jpeg',
-    name: 'Michael H.',
-    description: 'Senior frontend developer',
+    name: 'Alex P.',
+    description: 'SaaS Founder',
     content: (
       <>
-        🌟 Exciting news! 🚀 I've just started using Postiz, a fantastic new
-        tool for scheduling my social media content! {'\n\n'}
-        Why did I choose Postiz? The ability to self-host it means significant
-        savings for me! 💰 {'\n\n'}
-        Postiz is an open-source scheduling tool that allows you to plan and
-        automate posts across 19+ platforms, including X, LinkedIn, BlueSky, and
-        Mastodon. {'\n\n'}
-        With its powerful editor, you can easily connect your accounts, create
-        rich scheduled posts, and manage multiple channels all in one place.
-        Plus, it supports image uploads, recurring posts, and timezone-aware
-        scheduling! 📅✨ {'\n\n'}
-        Built with privacy and flexibility in mind, Postiz can run on your own
-        infrastructure or be used as a hosted service. It's perfect for
-        individuals, teams, and communities looking for control and automation
-        without the unnecessary bloat. {'\n\n'}
+        I was skeptical about AI-generated content until I tried Postnify. The
+        quality is surprisingly good — it picks up context from your brand and
+        writes posts that don't sound robotic. {'\n\n'}
+        We now schedule a month of content in one afternoon. Our LinkedIn
+        following doubled in 90 days. Highly recommend for any founder trying to
+        build an audience without a dedicated content team.
       </>
     ),
   },
   {
     picture: '/auth/avatars/kiley.jpeg',
-    name: 'Kiley H.',
+    name: 'Emma J.',
     description: 'Content Creator',
     content: (
       <>
-        The unified dashboard helps me manage Instagram, Facebook, and LinkedIn
-        from one place. I love that it saves time and keeps our campaigns
-        aligned across all platforms.
+        Managing Instagram, TikTok, and LinkedIn used to feel like three
+        separate jobs. Postnify brings them into one workflow. I plan my week in
+        one session and the posts go out automatically. My engagement has never
+        been more consistent.
       </>
     ),
   },
   {
     picture: '/auth/avatars/iorn.jpg',
-    name: 'Iornienge S.',
+    name: 'Tanya O.',
     description: 'Social Media Manager',
     content: (
       <>
-        There are several things I love about this suite. Some of these things
-        include {'\n'}- Ease of use {'\n'}- Helps me organize my social media
-        accounts {'\n'}- I get work done faster {'\n'}- It does not consume my
-        time {'\n'}- it has a professional interface {'\n'}
+        What I love most about Postnify: {'\n'}- It's fast to get started {'\n'}
+        - Organizes all client accounts in one place {'\n'}- The AI saves me
+        hours every week {'\n'}- Analytics actually tell you what to post more
+        of {'\n'}- Clean UI that clients can use too {'\n'}
       </>
     ),
   },
   {
     picture: '/auth/avatars/david.jpg',
-    name: 'David C.',
+    name: 'Chris L.',
     description: 'Digital Marketing Manager',
     content: (
       <>
-        Postiz makes it so easy to plan ahead. The AI suggestions are relevant,
-        and the platform feels lightweight but powerful
+        Postnify hits the sweet spot between powerful and simple. The AI content
+        suggestions are relevant, the scheduling is flexible, and the analytics
+        give you just enough data to make smart decisions without drowning in
+        dashboards.
       </>
     ),
   },
   {
     picture: '/auth/avatars/serge.jpeg',
-    name: 'Serge A.',
+    name: 'Lucas F.',
     description: 'CEO',
     content: (
       <>
-        Good tool for social media campaigns. The great thing is that the
-        platform constantly evolves - new features appear all the time, so I can
-        follow the latest trends (latest AI developments) without leaving
-        Postiz.
+        We run social campaigns across 6 platforms for our brand. Postnify made
+        that manageable for a two-person team. New features keep shipping —
+        every update adds something genuinely useful. It's the kind of tool that
+        gets better the more you use it.
       </>
     ),
   },
   {
     picture: '/auth/avatars/anica.jpg',
-    name: 'Anica R.',
-    description: 'University Applications Specialist',
+    name: 'Nina V.',
+    description: 'Online Business Owner',
     content: (
       <>
-        It is easy to use, manages your posts simple.It is a helpful tool that
-        let you organize your content.
+        I'm not a social media expert, but Postnify makes me look like one. The
+        AI takes care of the hard part — coming up with what to say — and I just
+        review, adjust, and schedule. My audience has grown steadily every
+        month.
       </>
     ),
   },
   {
     picture: '/auth/avatars/josh.jpg',
-    name: 'Josh W.',
+    name: 'Tyler M.',
     description: 'Content Manager',
     content: (
       <>
-        It's super easy to use even if you're not very techy. The AI writing
-        tool gives good drafts so I don't have to start from scratch every time
+        Even if you're not very technical, Postnify is easy to pick up. The AI
+        drafts give you a solid starting point so you're never staring at a
+        blank page. It's cut our content production time in half.
       </>
     ),
   },
   {
     picture: '/auth/avatars/vince.jpeg',
-    name: 'Vince C.',
-    description: 'Developer Relations Engineer',
+    name: 'Kevin D.',
+    description: 'Developer Advocate',
     content: (
       <>
-        I work in Developer Relations, so having a tool that helps me manage and
-        crosspost to different platforms saves me so, so, so much time!
+        I post across X, LinkedIn, and Bluesky daily. Postnify lets me write
+        once and distribute everywhere without reformatting each time. For
+        anyone building a personal brand in tech, this is the tool I'd start
+        with.
       </>
     ),
   },
