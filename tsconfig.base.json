@@ -32,6 +32,7 @@
       "@gitroom/react/*": ["libraries/react-shared-libraries/src/*"],
       "@gitroom/plugins/*": ["libraries/plugins/src/*"],
       "@gitroom/orchestrator/*": ["apps/orchestrator/src/*"],
+      "@gitroom/workers/*": ["apps/workers/src/*"],
       "@gitroom/extension/*": ["apps/extension/src/*"]
     }
   },
