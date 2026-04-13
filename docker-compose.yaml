@@ -59,8 +59,6 @@ services:
     volumes:
       - postgres-volume:/var/lib/postgresql/data
       - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
-    ports:
-      - 5432:5432
     networks:
       - postiz-network
     healthcheck:
@@ -78,8 +76,6 @@ services:
       resources:
         limits:
           memory: 1024M
-    ports:
-      - 6379:6379
     healthcheck:
       test: redis-cli ping
       interval: 10s
@@ -126,7 +122,7 @@ services:
     image: postgres:16
     environment:
       POSTGRES_PASSWORD: tPx7mK2vNqR5wL9bZ3cJ8eH4sY6fA1dQ
-      POSTGRES_USER: temporal-postnify-user
+      POSTGRES_USER: temporal
     networks:
       - temporal-network
     expose:
@@ -145,7 +141,7 @@ services:
     environment:
       - DB=postgres12
       - DB_PORT=5432
-      - POSTGRES_USER=temporal-postnify-user
+      - POSTGRES_USER=temporal
       - POSTGRES_PWD=tPx7mK2vNqR5wL9bZ3cJ8eH4sY6fA1dQ
       - POSTGRES_SEEDS=temporal-postgresql
       - DYNAMIC_CONFIG_FILE_PATH=config/dynamicconfig/development-sql.yaml
