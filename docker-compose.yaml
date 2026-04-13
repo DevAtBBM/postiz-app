@@ -34,6 +34,7 @@ services:
     networks:
       - postiz-network
       - temporal-network
+      - coolify
     depends_on:
       postiz-postgres:
         condition: service_healthy
@@ -193,3 +194,5 @@ networks:
   temporal-network:
     driver: bridge
     name: temporal-network
+  coolify:
+    external: true
