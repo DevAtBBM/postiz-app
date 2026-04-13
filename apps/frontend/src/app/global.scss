@@ -321,17 +321,16 @@ body * {
 .mantine-Paper-root {
   outline: none !important;
 }
-//
-//:root {
-//  --copilot-kit-primary-color: #612ad5 !important;
-//  --copilot-kit-background-color: #0b0f1c !important;
-//  --copilot-kit-separator-color: #1f2941 !important;
-//  --copilot-kit-contrast-color: #ffffff !important;
-//  --copilot-kit-secondary-contrast-color: #ffffff !important;
-//  --copilot-kit-secondary-color: #000 !important;
-//  --copilot-kit-response-button-background-color: #000 !important;
-//  --copilot-kit-response-button-color: #fff !important;
-//}
+:root {
+  --copilot-kit-primary-color: #26B9C0 !important;
+  --copilot-kit-background-color: #1a1919 !important;
+  --copilot-kit-separator-color: #272626 !important;
+  --copilot-kit-contrast-color: #ffffff !important;
+  --copilot-kit-secondary-contrast-color: #ffffff !important;
+  --copilot-kit-secondary-color: #26B9C0 !important;
+  --copilot-kit-response-button-background-color: #1a1919 !important;
+  --copilot-kit-response-button-color: #fff !important;
+}
 
 //.copilotKitWindow {
 //  @apply bg-customColor3 #{!important};

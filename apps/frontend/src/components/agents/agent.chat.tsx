@@ -45,7 +45,7 @@ export const AgentChat: FC = () => {
       {...(params.id === 'new' ? {} : { threadId: params.id })}
       credentials="include"
       runtimeUrl={backendUrl + '/copilot/agent'}
-      showDevConsole={false}
+      showDevConsole={process.env.NODE_ENV === 'development'}
       agent="postiz"
       properties={{
         integrations: properties,
@@ -67,7 +67,7 @@ export const AgentChat: FC = () => {
             className="w-full h-full"
             labels={{
               title: t('your_assistant', 'Your Assistant'),
-              initial: t('agent_welcome_message', `Hello, I am your Postiz agent 🙌🏻.
+              initial: t('agent_welcome_message', `Hello, I am your Postnify agent 🙌🏻.
               
 I can schedule a post or multiple posts to multiple channels and generate pictures and videos.
 
@@ -94,7 +94,7 @@ const LoadMessages: FC<{ id: string }> = ({ id }) => {
   const loadMessages = useCallback(async (idToSet: string) => {
     const data = await (await fetch(`/copilot/${idToSet}/list`)).json();
     setMessages(
-      data.uiMessages.map((p: any) => {
+      (data.uiMessages || []).map((p: any) => {
         return new TextMessage({
           content: p.content,
           role: p.role,

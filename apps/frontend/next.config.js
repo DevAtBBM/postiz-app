@@ -3,6 +3,7 @@ import { withSentryConfig } from '@sentry/nextjs';
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  allowedDevOrigins: ['stageapp.postnify.com'],
   experimental: {
     proxyTimeout: 90_000,
   },

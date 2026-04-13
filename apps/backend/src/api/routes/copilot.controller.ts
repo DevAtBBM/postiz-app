@@ -12,7 +12,6 @@ import {
   CopilotRuntime,
   OpenAIAdapter,
   copilotRuntimeNodeHttpEndpoint,
-  copilotRuntimeNextJSAppRouterEndpoint,
 } from '@copilotkit/runtime';
 import { GetOrgFromRequest } from '@gitroom/nestjs-libraries/user/org.from.request';
 import { Organization } from '@prisma/client';
@@ -91,16 +90,15 @@ export class CopilotController {
       agents,
     });
 
-    const copilotRuntimeHandler = copilotRuntimeNextJSAppRouterEndpoint({
+    const copilotRuntimeHandler = copilotRuntimeNodeHttpEndpoint({
       endpoint: '/copilot/agent',
       runtime,
-      // properties: req.body.variables.properties,
       serviceAdapter: new OpenAIAdapter({
         model: 'gpt-4.1',
       }),
     });
 
-    return copilotRuntimeHandler.handleRequest(req, res);
+    return copilotRuntimeHandler(req, res);
   }
 
   @Get('/credits')
@@ -123,12 +121,30 @@ export class CopilotController {
     const mastra = await this._mastraService.mastra();
     const memory = await mastra.getAgent('postiz').getMemory();
     try {
-      return await memory.recall({
+      const result = await memory.recall({
         resourceId: organization.id,
         threadId,
       });
+      const uiMessages = (result.messages || [])
+        .filter((m: any) => m.role === 'user' || m.role === 'assistant')
+        .map((m: any) => {
+          let content = '';
+          if (typeof m.content === 'string') {
+            content = m.content;
+          } else if (m.content?.content) {
+            content = m.content.content;
+          } else if (Array.isArray(m.content?.parts)) {
+            content = m.content.parts
+              .filter((p: any) => p.type === 'text')
+              .map((p: any) => p.text || '')
+              .join('');
+          }
+          return { role: m.role, content };
+        })
+        .filter((m: any) => m.content.trim().length > 0);
+      return { uiMessages };
     } catch (err) {
-      return { messages: [] };
+      return { uiMessages: [] };
     }
   }
 
