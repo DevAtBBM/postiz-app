@@ -11,7 +11,7 @@ export class BullMqServer extends Server implements CustomTransportStrategy {
    */
   listen(callback: () => void) {
     this.queues = [...this.messageHandlers.keys()].reduce((all, pattern) => {
-      all.set(pattern, new Queue(pattern, { connection: ioRedis }));
+      all.set(pattern, new Queue(pattern, { connection: ioRedis as any }));
       return all;
     }, new Map());
 
@@ -35,7 +35,7 @@ export class BullMqServer extends Server implements CustomTransportStrategy {
           {
             maxStalledCount: 10,
             concurrency: 300,
-            connection: ioRedis,
+            connection: ioRedis as any,
             removeOnComplete: {
               count: 0,
             },
