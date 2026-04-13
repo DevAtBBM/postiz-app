@@ -34,12 +34,6 @@ services:
     networks:
       - postiz-network
       - temporal-network
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.postiz.rule=Host(`platform.postnify.com`)"
-      - "traefik.http.services.postiz.loadbalancer.server.port=5000"
-      - "traefik.http.routers.postiz.entrypoints=websecure"
-      - "traefik.http.routers.postiz.tls=true"
     depends_on:
       postiz-postgres:
         condition: service_healthy
