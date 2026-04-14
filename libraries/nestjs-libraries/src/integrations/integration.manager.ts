@@ -76,22 +76,39 @@ export const socialIntegrationList: Array<SocialAbstract & SocialProvider> = [
 
 @Injectable()
 export class IntegrationManager {
+  private getEnvList(envVar: string): string[] {
+    return (process.env[envVar] || '')
+      .split(',')
+      .map((s) => s.trim().toLowerCase())
+      .filter(Boolean);
+  }
+
   async getAllIntegrations() {
+    const comingSoon = this.getEnvList('COMING_SOON_INTEGRATIONS');
+    const hidden = this.getEnvList('HIDDEN_INTEGRATIONS');
+
     return {
       social: await Promise.all(
-        socialIntegrationList.map(async (p) => ({
-          name: p.name,
-          identifier: p.identifier,
-          toolTip: p.toolTip,
-          editor: p.editor,
-          isExternal: !!p.externalUrl,
-          isWeb3: !!p.isWeb3,
-          isChromeExtension: !!p.isChromeExtension,
-          disabled: !!p.disabled,
-          disabledMessage: p.disabledMessage,
-          ...(p.extensionCookies ? { extensionCookies: p.extensionCookies } : {}),
-          ...(p.customFields ? { customFields: await p.customFields() } : {}),
-        }))
+        socialIntegrationList
+          .filter((p) => !hidden.includes(p.identifier.toLowerCase()))
+          .map(async (p) => {
+            const isComingSoon = comingSoon.includes(p.identifier.toLowerCase());
+            return {
+              name: p.name,
+              identifier: p.identifier,
+              toolTip: p.toolTip,
+              editor: p.editor,
+              isExternal: !!p.externalUrl,
+              isWeb3: !!p.isWeb3,
+              isChromeExtension: !!p.isChromeExtension,
+              disabled: !!p.disabled || isComingSoon,
+              disabledMessage: isComingSoon
+                ? 'Coming Soon'
+                : p.disabledMessage,
+              ...(p.extensionCookies ? { extensionCookies: p.extensionCookies } : {}),
+              ...(p.customFields ? { customFields: await p.customFields() } : {}),
+            };
+          })
       ),
       article: [] as any[],
     };
@@ -167,7 +184,11 @@ export class IntegrationManager {
   }
 
   getAllowedSocialsIntegrations() {
-    return socialIntegrationList.filter((p) => !p.disabled).map((p) => p.identifier);
+    const hidden = this.getEnvList('HIDDEN_INTEGRATIONS');
+    const comingSoon = this.getEnvList('COMING_SOON_INTEGRATIONS');
+    return socialIntegrationList
+      .filter((p) => !p.disabled && !hidden.includes(p.identifier.toLowerCase()) && !comingSoon.includes(p.identifier.toLowerCase()))
+      .map((p) => p.identifier);
   }
   getSocialIntegration(integration: string): SocialProvider {
     return socialIntegrationList.find((i) => i.identifier === integration)!;
